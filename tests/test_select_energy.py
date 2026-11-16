@@ -18,7 +18,8 @@ def _universe() -> tuple[pd.DataFrame, pd.DataFrame]:
             ("REF2", "refining_petroleum", 10),
             ("GAS1", "natural_gas", 40),
             ("GAS2", "natural_gas", 5),
-            ("GASNEW", "natural_gas", 1000),  # too short history
+            ("GASNEW", "natural_gas", 1000),  # 1.6y history: too short even for the 2y rule
+            ("GASMID", "natural_gas", 3),  # 2.6y history: eligible only under the relaxed rule
             ("ELGAP", "electricity", 900),  # long trading halt
             *[(f"EL{i}", "electricity", 100 + i) for i in range(8)],
         ],
@@ -31,6 +32,8 @@ def _universe() -> tuple[pd.DataFrame, pd.DataFrame]:
         dates = CAL
         if r.ticker == "GASNEW":
             dates = CAL[CAL >= "2023-06-01"]
+        if r.ticker == "GASMID":
+            dates = CAL[CAL >= "2022-06-01"]
         if r.ticker == "ELGAP":
             dates = CAL[(CAL < "2023-01-01") | (CAL > "2023-03-01")]
         frames.append(price_long(f"{r.ticker}.IS", dates, close=10.0, volume=float(r.vol)))
@@ -60,6 +63,17 @@ def test_selection_is_point_in_time():
     corrupted.loc[after, ["close", "volume"]] = 1e15
     other = select_energy(corrupted, cands, SEL, bist30=[], calendar_method="observed")
     pd.testing.assert_frame_equal(base.scores, other.scores)
+
+
+def test_relaxed_rule_only_for_short_subsector():
+    prices, cands = _universe()
+    cands = cands[cands["ticker"] != "GAS2"]  # natural_gas now has only GAS1 under the 3y rule
+    res = select_energy(prices, cands, SEL, bist30=[], calendar_method="observed")
+    sel = res.selected.set_index("ticker")
+    assert "GASMID" in sel.index and sel.loc["GASMID", "entry_rule"] == "2y_relaxed"
+    assert "GASNEW" not in sel.index  # < 2 years: still excluded
+    assert (sel.drop(index="GASMID")["entry_rule"] == "3y").all()
+    assert any("relaxed 2-year rule" in n for n in res.notes)
 
 
 def test_unmet_quota_reported():

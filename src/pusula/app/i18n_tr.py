@@ -31,7 +31,7 @@ TR: dict[str, str] = {
         "`uv run python -m pusula.data.update`"
     ),
     "ds_series_header": "Seri bazında kalite raporu",
-    "ds_flags_header": "Manuel inceleme gerektiren fiyat sıçramaları (±%25)",
+    "ds_flags_header": "Manuel inceleme gerektiren fiyat sıçramaları (hisse ±%10,5, endeks ±%10)",
     "ds_no_flags": "İşaretlenmiş sıçrama yok.",
     "ds_update_button": "Verileri güncelle",
     "ds_update_running": "Veriler güncelleniyor… (bu işlem birkaç dakika sürebilir)",

@@ -29,15 +29,47 @@ def _stale_count(values: pd.Series, stale_days: int) -> int:
     return int((run_len > stale_days).sum())
 
 
-def jump_flags(prices: pd.DataFrame, threshold: float = 0.25) -> pd.DataFrame:
-    """Rows where the adjusted close moved more than ``threshold`` vs the previous trading day."""
-    p = prices.sort_values(["ticker", "date"]).copy()
-    p["prev_adj_close"] = p.groupby("ticker")["adj_close"].shift()
+def jump_flags(
+    prices: pd.DataFrame,
+    threshold: float = 0.105,
+    index_threshold: float | None = None,
+    is_index=lambda t: str(t).startswith("X"),
+) -> pd.DataFrame:
+    """Rows where the adjusted close moved more than the threshold vs the previous valid row.
+
+    Stocks use ``threshold``; index tickers (``is_index``) use ``index_threshold`` (defaults to
+    ``threshold``). Missing prices are skipped, so the return spans the gap (``gap_days``).
+    """
+    p = prices.dropna(subset=["adj_close"]).sort_values(["ticker", "date"]).copy()
+    g = p.groupby("ticker")
+    p["prev_adj_close"] = g["adj_close"].shift()
+    p["prev_date"] = g["date"].shift()
     p["return"] = p["adj_close"] / p["prev_adj_close"] - 1
-    flagged = p[p["return"].abs() > threshold]
-    return flagged[["date", "ticker", "prev_adj_close", "adj_close", "return"]].reset_index(
-        drop=True
+    p["raw_return"] = p["close"] / g["close"].shift() - 1
+    thr = p["ticker"].map(
+        lambda t: index_threshold if (index_threshold is not None and is_index(t)) else threshold
     )
+    flagged = p[p["return"].abs() > thr]
+    cols = ["date", "ticker", "prev_date", "prev_adj_close", "adj_close", "return", "raw_return"]
+    return flagged[cols].reset_index(drop=True)
+
+
+def macro_jump_flags(
+    macro: pd.DataFrame, thresholds: dict[str, float], classes: dict[str, str]
+) -> pd.DataFrame:
+    """Daily macro series with |change| above the threshold of their jump class."""
+    rows = []
+    for sid, cls in classes.items():
+        if cls not in thresholds:
+            continue
+        s = macro[macro["series"] == sid].sort_values("date")
+        r = s["value"] / s["value"].shift() - 1
+        hit = s[r.abs() > thresholds[cls]]
+        rows += [
+            {"date": d, "series": sid, "class": cls, "change": float(x)}
+            for d, x in zip(hit["date"], r[hit.index], strict=True)
+        ]
+    return pd.DataFrame(rows, columns=["date", "series", "class", "change"])
 
 
 def _daily_stats(dates: pd.Series, values: pd.Series, calendar: pd.DatetimeIndex) -> dict:
@@ -82,12 +114,15 @@ def build_report(
     calendar: pd.DatetimeIndex,
     expected_tickers: list[str],
     expected_macro: dict[str, tuple[str, str]],  # id -> (source, freq)
-    jump_threshold: float = 0.25,
+    jump_thresholds: dict[str, float] | None = None,
     stale_days: int = 5,
+    macro_classes: dict[str, str] | None = None,
 ) -> pd.DataFrame:
     """One row per expected ticker and macro series (missing ones included, status 'missing')."""
+    th = {"stock": 0.105, "index": 0.10, "fx": 0.10, "commodity": 0.25, **(jump_thresholds or {})}
     rows: list[dict] = []
-    jumps = jump_flags(prices, jump_threshold) if not prices.empty else pd.DataFrame()
+    jumps = jump_flags(prices, th["stock"], th["index"]) if not prices.empty else pd.DataFrame()
+    mjumps = macro_jump_flags(macro, th, macro_classes or {}) if not macro.empty else None
     for t in expected_tickers:
         p = prices[prices["ticker"] == t]
         row: dict = {
@@ -135,6 +170,8 @@ def build_report(
             )
             row["source"] = m["source"].iloc[-1] if "source" in m else source
             row["last_update"] = m["updated_at"].max() if "updated_at" in m else None
+            if mjumps is not None and not mjumps.empty:
+                row["jumps"] = int((mjumps["series"] == sid).sum())
         row["status"] = _status(row)
         rows.append(row)
 

@@ -142,16 +142,16 @@ All series are declared in `config/data_sources.yaml`. **EVDS series codes must 
 |---|---|---|---|---|
 | Prices | OHLCV for all universe tickers | D | Everything | yfinance `.IS` |
 | Indices | XU100, XU030, XELKT (if available) | D | Market beta, benchmarks | yfinance / manual |
-| TR rates | TCMB policy rate (1-week repo) | D (step) | Scenario input | EVDS |
+| TR rates | TCMB policy rate (1-week repo) | D (step) | Scenario input | TCMB website "1 Hafta Repo" table (EVDS has no daily series; D-018) |
 | TR rates | TLREF | D | Market rate; risk-free rate for Sharpe | EVDS / manual |
 | TR rates | 2Y (and 10Y) benchmark government bond yield | D | Rate factor, yield-curve slope (banks) | EVDS if available, else manual |
 | FX | USD/TRY, EUR/TRY | D | FX factor, USD-based returns | EVDS / yfinance `TRY=X` |
-| Inflation | CPI index + **release dates** | M | Real returns, scenarios | EVDS (TÜİK) |
+| Inflation | CPI index (2025=100, `TP.TUKFIY2025.GENEL`) + **release dates** | M | Real returns, scenarios | EVDS (TÜİK); release dates: official file if provided, else conservative rule (D-023) |
 | Expectations | Market participants survey: 12-month CPI expectation | M | Context, real rate | EVDS |
 | Country risk | Türkiye 5Y CDS | D | Risk premium factor | manual CSV |
 | Global | Brent (`BZ=F`), TTF gas (`TTF=F`), VIX (`^VIX`), US 10Y (`^TNX`), DXY | D | Global / commodity factors | yfinance |
 | Energy | EPİAŞ PTF (day-ahead electricity price, hourly → daily average) | D | Electricity revenue driver (**core**, needed for C3) | **Core: manual CSV export** from the EPİAŞ Transparency Platform website. Live API adapter (account + CAS ticket from `giris.epias.com.tr`) is **optional** |
-| Events | TCMB MPC (PPK) decisions: date, previous rate, new rate, change (bp), market expectation if available | Event | Event study, pass-through | `data/manual/ppk_decisions.csv`: build the schema and a helper that detects rate-change dates from the EVDS series; I complete the meeting dates manually |
+| Events | TCMB MPC (PPK) decisions: date, previous rate, new rate, change (bp), market expectation if available | Event | Event study, pass-through | `data/manual/ppk_decisions.csv`, pre-filled from TCMB's PPK pages with a source URL per row (`python -m pusula.data.prefill ppk`, D-028); user reviews |
 
 Data engineering requirements:
 - Raw downloads go to `data/raw/<source>/<YYYYMMDD>.parquet`. Cleaned data goes to DuckDB tables: `prices`, `macro`, `events`, `universe`, `analysis_runs`, `llm_usage`.
@@ -159,7 +159,8 @@ Data engineering requirements:
   - business-day calendar of Borsa Istanbul,
   - explicit forward-fill rules per series (e.g. policy rate: step; CPI: only after release date),
   - optional weekly resampling (Friday close).
-- **Corporate actions:** Turkish stocks have frequent bonus issues ("bedelsiz"). Use adjusted prices, and flag daily moves above ±25% for manual review.
+- **Corporate actions:** Turkish stocks have frequent bonus issues ("bedelsiz"). Use adjusted prices; flag daily moves above **±10.5% for stocks** (indices ±10%, FX ±10%, commodities ±25%; D-026) and classify them with `python -m pusula.data.jump_review`. Corrections live in `config/corporate_actions.yaml` and are applied in a cleaning step to the `prices_clean` table; raw data is never modified, and only `status: confirmed` entries are applied (D-024, D-025).
+- **EVDS** returns at most ~1000 items per request, so daily series are fetched in ≤900-day windows.
 - **Data quality report:** coverage %, missing days, stale prices, flagged jumps and last update per series. Shown on the "Veri Durumu" page.
 - One command updates everything: `uv run python -m pusula.data.update` (incremental).
 
@@ -449,6 +450,9 @@ uv run python -m pusula.data.update              # fetch/update data (incrementa
 uv run python -m pusula.data.evds_lookup "<text>" # search EVDS metadata to verify series codes
 uv run python -m pusula.universe.validate --names # check every Yahoo symbol downloads
 uv run python -m pusula.universe.select_energy    # rule-based energy selection
+uv run python -m pusula.universe.bist_index       # BIST30 lists from Borsa Istanbul (+ reconstruction)
+uv run python -m pusula.data.prefill ppk          # pre-fill ppk_decisions.csv from TCMB
+uv run python -m pusula.data.jump_review --write  # classify price jumps, propose corrections
 uv run streamlit run src/pusula/app/Home.py      # dashboard
 uv run pytest                                    # tests
 uv run ruff check . && uv run ruff format .      # lint/format
@@ -471,3 +475,11 @@ Details, alternatives and reasons are in `docs/DECISIONS.md` (D-001 …). Short 
 - VIF reported; OLS default; ridge optional.
 - Non-LLM strategies also run over 2019–2026.
 - Cloud environment `bitirme-projesi` allows the data hosts; keys are provided as environment secrets, never in chat or in `.env` committed to git.
+
+Follow-ups (same day, D-018 … D-030):
+- Policy rate from TCMB's 1-week repo table; TLREF from 2018-12-28 with interbank O/N before; 2Y/10Y yields manual (or TLREF, decide in P3).
+- BIST30 lists from Borsa Istanbul (reference = current file; selection = reconstructed), pending user review.
+- Energy: 3-year rule, relaxed to 2 years per sub-sector only when a quota is unmet (`entry_rule`).
+- Stock jump threshold ±10.5%; corporate actions in `config/corporate_actions.yaml` → `prices_clean`.
+- EPİAŞ live API needs local `.env` credentials (form-body login); cloud uses `ptf.csv`.
+- **P4 note:** Sonnet 5.5 cannot disable thinking, so temperature=0 is not deterministic. Rely on the response cache for reproducibility and measure run-to-run variation in E5.

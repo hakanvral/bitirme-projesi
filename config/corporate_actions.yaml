@@ -1,0 +1,46 @@
+# Corporate-action corrections applied in the cleaning step (src/pusula/data/cleaning.py, D-024).
+# Raw data is never modified; corrections produce the `prices_clean` table.
+#
+# Fields: ticker, date (ex-date = first day at the post-action price), type, ratio,
+#         [subscription_price], status (proposed | confirmed | rejected), source_url, note.
+# Only statuses listed in apply_statuses are applied.
+
+apply_statuses:
+- confirmed
+actions:
+- ticker: AYGAZ
+  date: '2018-03-29'
+  type: factor
+  ratio: 1.123325
+  status: proposed
+  source_url: ''
+  note: 'vendor_dividend_adjustment: adj return +13.0%, raw -6.8%, XU100 +0.6%. Likely
+    ex-dividend day with a wrong vendor adjustment; placeholder sets the day''s return
+    to XU100''s. Exact factor = (P_cum - D)/P_cum with dividend D from KAP.'
+- ticker: AYGAZ
+  date: '2019-03-28'
+  type: factor
+  ratio: 1.168452
+  status: proposed
+  source_url: ''
+  note: 'vendor_dividend_adjustment: adj return +17.2%, raw -8.7%, XU100 +0.3%. Likely
+    ex-dividend day with a wrong vendor adjustment; placeholder sets the day''s return
+    to XU100''s. Exact factor = (P_cum - D)/P_cum with dividend D from KAP.'
+- ticker: AYGAZ
+  date: '2022-09-01'
+  type: factor
+  ratio: 1.740942
+  status: proposed
+  source_url: ''
+  note: 'split_or_bonus_misadjustment: adj return +72.5%, raw +72.5%, XU100 -0.9%.
+    Check KAP for a bonus/rights issue, split or share consolidation and its real
+    ex-date.'
+- ticker: NATEN
+  date: '2023-11-29'
+  type: factor
+  ratio: 1.441653
+  status: proposed
+  source_url: ''
+  note: 'split_or_bonus_misadjustment: adj return +42.7%, raw +42.7%, XU100 -1.0%.
+    Check KAP for a bonus/rights issue, split or share consolidation and its real
+    ex-date.'

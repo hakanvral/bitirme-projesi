@@ -37,7 +37,8 @@ if st.button(t("ds_update_button"), type="primary"):
 def _load(path: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     store = Store(settings.paths.db_path, settings.paths.raw_dir)
     rep = store.query("SELECT * FROM quality_report ORDER BY kind, series")
-    flags = jump_flags(store.prices(), settings.data_quality.jump_threshold)
+    th = settings.data_quality.jump_thresholds
+    flags = jump_flags(store.prices(), th["stock"], th["index"])
     return rep, flags
 
 
@@ -91,7 +92,9 @@ else:
         if flags.empty:
             st.info(t("ds_no_flags"))
         else:
-            fv = flags.assign(date=flags["date"].dt.date, **{"return": flags["return"] * 100})
+            fv = flags[["date", "ticker", "prev_adj_close", "adj_close", "return"]].assign(
+                date=flags["date"].dt.date, **{"return": flags["return"] * 100}
+            )
             fv.columns = [
                 t(k)
                 for k in (

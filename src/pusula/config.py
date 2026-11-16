@@ -89,7 +89,12 @@ class LLMCfg(BaseModel):
 
 
 class DataQualityCfg(BaseModel):
-    jump_threshold: float = 0.25
+    jump_thresholds: dict[str, float] = {
+        "stock": 0.105,
+        "index": 0.10,
+        "fx": 0.10,
+        "commodity": 0.25,
+    }
     stale_days: int = 5
     max_ffill_days_market: int = 5
 

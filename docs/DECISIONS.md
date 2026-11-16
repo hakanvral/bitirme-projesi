@@ -93,3 +93,58 @@ section. IDs are stable; superseded decisions are marked, never deleted.
 ### D-017 · EVDS adapter targets EVDS3
 - **Decision:** base URL `https://evds3.tcmb.gov.tr/igmevdsms-dis/` with header `key`. The parameter format follows the EVDS API (`series=…&startDate=dd-mm-yyyy&endDate=…&type=json`). Metadata (`categories/`, `datagroups/`, `serieList/`) is wrapped by `python -m pusula.data.evds_lookup`.
 - **Checked:** endpoint and auth on 2026-11-16 (`categories/` returned JSON with the key). Series download and codes are not yet verified live (see PROGRESS.md).
+
+---
+
+## P1 follow-ups (2026-11-16)
+
+### D-018 · Policy rate from TCMB's official one-week repo table (not EVDS)
+- **Decision:** `policy_rate` = lending rate of TCMB's "1 Hafta Repo" table (www.tcmb.gov.tr, Merkez Bankası Faiz Oranları → 1 Hafta Repo), dated from the day each rate took effect; step-filled.
+- **Alternatives:** EVDS. Its metadata search found no daily one-week repo series, only the monthly BIS series `TP.BISPOLFAIZ.TUR` (too coarse for the event study).
+- **Note:** the series jumps from 8.0% to 16.5% on 2018-06-01 without a PPK meeting. That date is not a rate decision: it is when the one-week repo rate was lifted to the 16.5% funding rate in mid-2018. Before that, the late liquidity window (LON) was the binding rate, so PPK decisions before 2018-06-01 are flagged in `ppk_decisions.csv` and must be handled separately in E3.
+
+### D-019 · Risk-free rate before TLREF
+- **Decision:** TLREF (`TP.BISTTLREF.ORAN`) starts 2018-12-28. For 2018 the interbank O/N weighted average rate (`TP.AOFO`, archive, until 2019-02-08) will be spliced in when computing Sharpe/Sortino (from P2/P6).
+- **Reason:** both are overnight TRY money-market rates. The splice affects only 2018.
+
+### D-020 · 2Y/10Y government bond yields stay manual
+- **Decision:** EVDS has no benchmark-yield series (`bie_pydibs` holds per-bond, per-ISIN indicative values only), so `tr_2y` / `tr_10y` come from manual CSVs.
+- **Open:** if no reliable source is found, the rate factor uses TLREF (allowed by CLAUDE.md §6.3: "2Y TRY yield (or TLREF)"). This will be decided in the P3 plan.
+
+### D-021 · BIST30 lists from official Borsa Istanbul sources, with backward reconstruction
+- **Decision:** the current list comes from `borsaistanbul.com/datum/hisse_endeks_ds.csv`. Past lists are rebuilt backwards with the quarterly "BIST Pay Endeksleri Dönemsel Değişiklikleri" announcements (added/removed shares per period) and checked against the announcement of the target period (`python -m pusula.universe.bist_index`).
+- **Limitation:** changes *within* a period (delisting, merger, ticker change) are not in these announcements, so both lists are marked `pending_user_review`.
+
+### D-022 · EPİAŞ live API needs local credentials
+- **Decision:** the EPİAŞ adapter follows the official docs (TGT from `giris.epias.com.tr/cas/v1/tickets` via form fields, then `POST /electricity-service/v1/markets/dam/data/mcp` with header `TGT`). It reads `EPIAS_USERNAME`/`EPIAS_PASSWORD` from the local `.env`.
+- **Finding:** credentials stored as a cloud network secret (HTTP header injection) cannot work: tested on 2026-11-16, the login answered "No credentials can be extracted to authenticate the REST request" because it accepts only form-body credentials. So in the cloud environment PTF falls back to `data/manual/ptf.csv`.
+
+### D-023 · Conservative release-date rules when official dates are unavailable
+- **Decision:** if no official release-date file exists, monthly series get a conservative release date: CPI → first BIST session on or after the **6th** of the following month; Sectoral Inflation Expectations (market participants, `TP.ENFBEK.PKA12ENF`) → first session on or after the **1st** of the following month. A user-provided `<id>_release_dates.csv` always takes precedence.
+- **Reason:** the rules are meant never to be earlier than the real publication, so there is no look-ahead; the cost is a few days' delay in using the information. The official TÜİK release calendar could not be read automatically (the TÜİK data portal API answered "Erişim engellendi" / access denied), and TCMB publishes no history of survey dates. Evidence for the survey rule: the October 2026 report PDF was created on 2026-10-20, i.e. inside the reference month.
+- **Plain language:** we pretend each inflation number became known a little later than it really did. That can only make the model slightly slower, never let it "see the future".
+
+### D-024 · Corporate-action corrections in a separate cleaning step
+- **Decision:** raw downloads (`data/raw/`, table `prices`) are never modified. Corrections from `config/corporate_actions.yaml` (ticker, date, type, ratio, source_url, note, status) are applied to a copy, the `prices_clean` table, which all analyses read. Only `status: confirmed` entries are applied, so a proposal never changes results before the user checks it on KAP.
+- **Types:** bonus_issue, split, reverse_split, rights_issue (theoretical ex-rights price), factor (explicit, e.g. to undo a wrong vendor adjustment), bad_print.
+
+### D-025 · Generic cleaning rules
+- **Decision:** (1) rows on non-session days inside the data range are dropped (e.g. Yahoo rows on 2018-01-01 and 2023-02-08); (2) stale rows (zero volume and close equal to the previous close) are set to missing. 61 such rows were found, e.g. on 2020-03-11, where they would merge two Covid-crash days into one apparent "jump".
+
+### D-026 · Jump thresholds by asset class, and jump review
+- **Decision:** stocks ±10.5% (BIST main-market daily limit ±10% plus tick rounding), indices ±10%, FX ±10%, commodities ±25%. `python -m pusula.data.jump_review` classifies every flagged stock-day (market event / multi-day gap / vendor dividend error / split-bonus misadjustment / review) and writes proposals to `corporate_actions.yaml`.
+- **Finding:** in the data, 10.5–20% moves are common in 2018–2020 and stop at about ±20%, with none in 2021. This fits a wider (±20%) band applying to many stocks before then, so the ±10% rule may not hold for the whole sample. I could not verify the official band history, so those cases are listed as `review` (58 cases) and not corrected.
+
+### D-027 · Energy selection: per-sub-sector relaxed history rule
+- **Decision:** the 3-year history rule stays the default. If a quota sub-sector cannot be filled, the rule is relaxed to 2 years **for that sub-sector only**, and those names are recorded with `entry_rule: 2y_relaxed`.
+- **Result:** at 2025-11-03, natural_gas had no 3-year names, so ENERY and AHGAZ entered under the relaxed rule.
+
+### D-028 · Pre-filled manual inputs
+- **Decision:** `python -m pusula.data.prefill ppk` builds `ppk_decisions.csv` from TCMB's yearly PPK pages (decision dates plus press-release URL), with rates from the repo table and the press-release text as a cross-check. An existing file is never overwritten.
+
+### D-029 · Earthquake closure, February 2023
+- **Decision:** keep the XIST calendar, which has no session on 2023-02-08 and reopens on 2023-02-15.
+- **Evidence:** Borsa Istanbul announcement no. 15151, dated 14.02.2023 ("Piyasaların Açılışı ile Birlikte Piyasa İşleyiş Esaslarında Yapılacak Değişiklikler Hk.", borsaistanbul.com/files/20230214-15151-Duyuru.pdf), confirms the reopening with changed market rules. I could **not** find an official Borsa Istanbul document stating that the trades of 2023-02-08 were cancelled, so that part remains unconfirmed.
+
+### D-030 · Note for P4: LLM determinism (not implemented yet)
+- Claude Sonnet 5.5 cannot disable extended thinking (Anthropic models overview), so `temperature=0` does not guarantee identical outputs. Reproducibility will rely on the on-disk response cache (keyed by model, prompt version and input hash), and run-to-run variation will be measured in E5.

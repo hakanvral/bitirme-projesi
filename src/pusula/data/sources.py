@@ -16,12 +16,17 @@ FillRule = Literal["step", "market", "release", "none"]
 
 class SeriesSpec(BaseModel):
     id: str
-    source: Literal["yfinance", "evds", "manual"]
+    source: Literal["yfinance", "evds", "tcmb_web", "epias", "manual"]
     code: str | None = None
     freq: Literal["D", "M", "E"] = "D"
     fill: FillRule = "market"
     unit: str = ""
     manual: str | None = None
+    # Conservative release-date rule used when no official release-date file exists (D-023),
+    # e.g. "next_month_day:6" = first BIST session on/after the 6th of the following month.
+    release_rule: str | None = None
+    # Which jump threshold applies in the quality report: fx | commodity | index | none
+    jump_class: str = "none"
     desc: str = ""
 
     @property

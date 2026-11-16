@@ -1,16 +1,25 @@
-# BIST30 constituents.
-# TODO(user): paste the OFFICIAL lists from Borsa Istanbul (index constituents page / announcement).
-# Do NOT fill from memory. Ticker codes without the ".IS" suffix, e.g. "THYAO".
+# BIST30 constituents (official Borsa Istanbul sources, D-021). Ticker codes without ".IS".
 #
 # reference: list in force on settings.project.reference_date (dashboard)
 # selection: list in force on settings.project.selection_date (E4 backtest, D-002)
+#
+# Generated with `uv run python -m pusula.universe.bist_index` on 2026-11-16, then reviewed.
+# status: pending_user_review  -> set to "confirmed" after checking.
 
 bist30:
   reference:
     date: "2026-11-01"
-    source: "TODO: Borsa Istanbul announcement / URL"
-    tickers: []
+    source: "https://www.borsaistanbul.com/datum/hisse_endeks_ds.csv (file dated 2026-11-16; period 01.10.2026-31.12.2026, announcement #15598)"
+    method: "current constituents file; assumes no intra-period change between 2026-11-01 and 2026-11-16"
+    status: pending_user_review
+    tickers: [AEFES, AKBNK, ASELS, ASTOR, BIMAS, EKGYO, ENKAI, EREGL, FROTO, GARAN,
+              GUBRF, ISCTR, KCHOL, KRDMD, MGROS, PETKM, PGSUS, SAHOL, SASA, SISE,
+              TAVHL, TCELL, THYAO, TOASO, TRALT, TRMET, TTKOM, TUPRS, VAKBN, YKBNK]
   selection:
     date: "2025-11-03"
-    source: "TODO: Borsa Istanbul announcement / URL"
-    tickers: []
+    source: "reconstructed backwards from the current file using announcements #15598, #15483, #15392, #15293; checked against #15220 (period 01.10.2025-31.12.2025)"
+    method: "undo 2026-10-01 (-TRMET +DSTKF), undo 2026-04-01 (-VAKBN +ULKER); intra-period changes are not covered"
+    status: pending_user_review
+    tickers: [AEFES, AKBNK, ASELS, ASTOR, BIMAS, DSTKF, EKGYO, ENKAI, EREGL, FROTO,
+              GARAN, GUBRF, ISCTR, KCHOL, KRDMD, MGROS, PETKM, PGSUS, SAHOL, SASA,
+              SISE, TAVHL, TCELL, THYAO, TOASO, TRALT, TTKOM, TUPRS, ULKER, YKBNK]

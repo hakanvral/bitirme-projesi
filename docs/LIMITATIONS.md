@@ -16,3 +16,12 @@ Prices come from Yahoo Finance (an unofficial API). Corporate-action adjustment 
 
 ### L-05 · Yahoo index data gaps
 Yahoo's XU100 history misses some real sessions (25 December in several years, 2021-04-02), and Yahoo has no history for XELKT (only the latest day). The panel uses the official XIST calendar (D-013); XELKT needs a manual CSV if it is used as a benchmark.
+
+### L-06 · Release dates by rule
+CPI and survey release dates use conservative rules (D-023) unless official dates are provided, so information enters the model a few days later than it did in reality.
+
+### L-07 · Price limit history
+The analysis cannot rule out that some 10–20% daily moves before 2021 are data errors; they are consistent with a ±20% band but were not verified (D-026).
+
+### L-08 · Reconstructed BIST30 list
+The 2025-11-03 BIST30 list is reconstructed from period-change announcements and does not capture intra-period changes (D-021).

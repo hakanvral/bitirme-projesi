@@ -25,7 +25,9 @@ llm:
   post_cutoff_start: "2026-07-01"
 
 data_quality:
-  jump_threshold: 0.25        # |daily simple return| above this is flagged for manual review
+  # |daily simple return| above these thresholds is flagged for manual review (D-026).
+  # Stocks: BIST main-market daily price limit is ±10%, +0.5pp for tick rounding.
+  jump_thresholds: {stock: 0.105, index: 0.10, fx: 0.10, commodity: 0.25}
   stale_days: 5               # unchanged price for more than N trading days -> stale
   max_ffill_days_market: 5    # market series are forward-filled at most N business days
 

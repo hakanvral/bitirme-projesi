@@ -152,3 +152,23 @@ def test_manual_ohlcv_adj_defaults_to_close(tmp_path):
     p.write_text("date,open,high,low,close,volume\n2024-01-02,1,2,0.5,1.5,10\n")
     df = manual_csv.read_ohlcv(p, "XU030.IS")
     assert np.isclose(df["adj_close"].iloc[0], 1.5)
+
+
+def test_evds_series_is_requested_in_windows(fixtures_dir):
+    urls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        urls.append(str(request.url))
+        return httpx.Response(200, content=(fixtures_dir / "evds_series_daily.json").read_bytes())
+
+    client = EvdsClient(
+        "https://example.test/api/",
+        None,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    df = client.series(
+        "TEST.SERIES.A", pd.Timestamp("2018-01-01").date(), pd.Timestamp("2026-11-16").date()
+    )
+    assert len(urls) == 4  # 3236 days / 900-day windows
+    assert "startDate=01-01-2018&endDate=18-06-2020" in urls[0]
+    assert len(df) == 3  # duplicates across windows removed

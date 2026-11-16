@@ -1,7 +1,8 @@
 """DuckDB storage + raw Parquet snapshots.
 
 Tables (CLAUDE.md §5):
-* ``prices``        daily OHLCV per ticker (primary key: date, ticker)
+* ``prices``        daily OHLCV per ticker as downloaded (primary key: date, ticker)
+* ``prices_clean``  ``prices`` after corporate-action corrections (D-024); used by analyses
 * ``macro``         daily/monthly macro values (primary key: date, series)
 * ``events``        e.g. PPK decisions
 * ``universe``      universe membership snapshots
@@ -27,6 +28,12 @@ import pandas as pd
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS prices (
+    date DATE NOT NULL, ticker VARCHAR NOT NULL,
+    open DOUBLE, high DOUBLE, low DOUBLE, close DOUBLE, adj_close DOUBLE, volume DOUBLE,
+    source VARCHAR, updated_at TIMESTAMP,
+    PRIMARY KEY (date, ticker)
+);
+CREATE TABLE IF NOT EXISTS prices_clean (
     date DATE NOT NULL, ticker VARCHAR NOT NULL,
     open DOUBLE, high DOUBLE, low DOUBLE, close DOUBLE, adj_close DOUBLE, volume DOUBLE,
     source VARCHAR, updated_at TIMESTAMP,
@@ -194,8 +201,24 @@ class Store:
         v = res["d"].iloc[0]
         return None if pd.isna(v) else pd.Timestamp(v).date()
 
-    def prices(self, tickers: list[str] | None = None, end: date | None = None) -> pd.DataFrame:
-        sql, params = "SELECT * FROM prices WHERE 1=1", []
+    def replace_prices_clean(self, df: pd.DataFrame) -> None:
+        d = df.copy()
+        d["date"] = pd.to_datetime(d["date"]).dt.date
+        cols = [*PRICE_COLS, "source", "updated_at"]
+        with self.connect() as con:
+            con.execute("DELETE FROM prices_clean")
+            con.register("incoming", d[cols])
+            con.execute("INSERT INTO prices_clean SELECT * FROM incoming")
+
+    def prices(
+        self, tickers: list[str] | None = None, end: date | None = None, clean: bool = True
+    ) -> pd.DataFrame:
+        """Long price table. ``clean=True`` reads ``prices_clean`` if it has been built."""
+        table = "prices"
+        if clean:
+            n = self.query("SELECT count(*) AS n FROM prices_clean")["n"].iloc[0]
+            table = "prices_clean" if n > 0 else "prices"
+        sql, params = f"SELECT * FROM {table} WHERE 1=1", []
         if tickers:
             sql += f" AND ticker IN ({','.join('?' * len(tickers))})"
             params += tickers

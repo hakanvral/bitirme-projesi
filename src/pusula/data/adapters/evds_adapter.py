@@ -18,7 +18,7 @@ The HTTP client is injectable (``httpx.Client``), so tests use ``httpx.MockTrans
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, timedelta
 
 import httpx
 import pandas as pd
@@ -26,6 +26,9 @@ import pandas as pd
 log = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 60.0
+# EVDS returns at most ~1000 items per request (found 2026-11-16: a 2018-2026 daily request
+# returned only the last ~1000 calendar days). Daily series are therefore requested in windows.
+MAX_WINDOW_DAYS = 900
 
 
 class EvdsError(RuntimeError):
@@ -60,10 +63,16 @@ class EvdsClient:
 
     # ------------------------------------------------------------------ data
     def series(self, code: str, start: date, end: date) -> pd.DataFrame:
-        """One series as ``date, value`` (float). Missing values are dropped."""
-        path = f"series={code}&startDate={start:%d-%m-%Y}&endDate={end:%d-%m-%Y}&type=json"
-        payload = self._get(path)
-        return parse_series(payload, code)
+        """One series as ``date, value`` (float), requested in windows of MAX_WINDOW_DAYS."""
+        frames = []
+        s = start
+        while s <= end:
+            e = min(s + timedelta(days=MAX_WINDOW_DAYS - 1), end)
+            path = f"series={code}&startDate={s:%d-%m-%Y}&endDate={e:%d-%m-%Y}&type=json"
+            frames.append(parse_series(self._get(path), code))
+            s = e + timedelta(days=1)
+        out = pd.concat(frames, ignore_index=True)
+        return out.drop_duplicates("date").sort_values("date").reset_index(drop=True)
 
     # ------------------------------------------------------------------ metadata
     def categories(self) -> list[dict]:

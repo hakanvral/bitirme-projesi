@@ -1,35 +1,35 @@
 # Data sources
 
-Declared in `config/data_sources.yaml`. Each series has an adapter and (where useful) a manual-CSV
-fallback (`data/manual/README.md`).
+Declared in `config/data_sources.yaml`. Each series has an adapter and, where useful, a manual-CSV
+fallback (`data/manual/README.md`). Status as of 2026-11-16.
 
-## Verification status (2026-11-16)
+## EVDS (TCMB): verified series codes
 
-| Source | Endpoint / symbol | Status |
-|---|---|---|
-| EVDS (TCMB) | `https://evds3.tcmb.gov.tr/igmevdsms-dis/`, header `key` | Endpoint and auth checked: `categories/` returns JSON with the key, and 403 `Required request header 'key' is not present` without it. evds2 redirects to evds3. **Series codes not verified yet** → `TODO_VERIFY` (see below). |
-| Yahoo Finance | `query1/query2.finance.yahoo.com` via `yfinance` | Host reachable; symbols are validated by `python -m pusula.universe.validate`. |
-| EPİAŞ | `seffaflik.epias.com.tr` (website export) | Reachable. PTF via manual export (D-005); live API optional. |
-| Borsa Istanbul | `www.borsaistanbul.com` | Reachable; source of the BIST30 lists and TLREF. |
-| CDS | none (manual CSV) | — |
+API: `https://evds3.tcmb.gov.tr/igmevdsms-dis/`, header `key`, ≤1000 items per request (we use
+≤900-day windows). Codes were found with `python -m pusula.data.evds_lookup` (metadata endpoints
+`datagroups/` and `serieList/`) on 2026-11-16 and checked by downloading them.
 
-## How EVDS codes are verified
+| Series id | EVDS code | Data group | Name in EVDS | Check |
+|---|---|---|---|---|
+| usdtry | `TP.DK.USD.A.YTL` | bie_dkdovytl | (USD) US Dollar (Buying), daily | 2228 obs 2018-01-01 → 2026-11-16; median gap to Yahoo TRY=X 0.24% |
+| eurtry | `TP.DK.EUR.A.YTL` | bie_dkdovytl | (EUR) Euro (Buying), daily | 2228 obs |
+| tlref | `TP.BISTTLREF.ORAN` | bie_bisttlref | BIST TLREF – Turkish Lira Overnight Reference Rate | starts 2018-12-28 |
+| interbank_on | `TP.AOFO` | bie_onrepof | Over/Night Interbank Interest Rates – Weighted Average (Archive) | 2018-01-02 → 2019-02-08 (D-019) |
+| cpi | `TP.TUKFIY2025.GENEL` | bie_tukfiy2025 | CPI (2025=100) General Index, monthly | annual inflation Oct-2022 85.5%, Dec-2023 64.8%, Dec-2024 44.4% (matches TÜİK) |
+| cpi_exp_12m | `TP.ENFBEK.PKA12ENF` | bie_enfbek | Annual inflation expectations of market participants (12-month ahead, %) | 2018-01 → 2026-10 |
 
-```bash
-uv run python -m pusula.data.evds_lookup "policy rate" "exchange rate" "consumer price" "market participants" "tlref" "benchmark"
-```
+Not in EVDS (checked): daily policy rate (only monthly BIS `TP.BISPOLFAIZ.TUR`) → TCMB website
+(D-018); benchmark 2Y/10Y yields (`bie_pydibs` = per-ISIN values only) → manual (D-020).
 
-The command searches EVDS data-group names through the metadata endpoints (`datagroups/`,
-`serieList/`) and prints the series codes. Each verified code goes into
-`config/data_sources.yaml`, with the lookup recorded in the table below.
+## Other sources
 
-| Series id | EVDS code | Data group | Verified on |
+| Source | Endpoint | Used for | Status |
 |---|---|---|---|
-| policy_rate | TODO_VERIFY | | |
-| tlref | TODO_VERIFY | | |
-| tr_2y | TODO_VERIFY | | |
-| tr_10y | TODO_VERIFY | | |
-| usdtry | TODO_VERIFY | | |
-| eurtry | TODO_VERIFY | | |
-| cpi | TODO_VERIFY | | |
-| cpi_exp_12m | TODO_VERIFY | | |
+| TCMB website | `…/Para+Politikasi/Merkez+Bankasi+Faiz+Oranlari/1+Hafta+Repo` | policy rate | automated |
+| TCMB website | `…/Para+Politikasi/PPK/<year>` + press releases | `ppk_decisions.csv` prefill | automated, user review |
+| Borsa Istanbul | `/datum/hisse_endeks_ds.csv`, period-change announcements | BIST30 lists | automated, user review |
+| Yahoo Finance | `yfinance` | stock and index prices, Brent, TTF, VIX, US10Y, DXY, TRY=X | automated |
+| EPİAŞ | `giris.epias.com.tr` (TGT), `seffaflik.epias.com.tr/electricity-service/v1/markets/dam/data/mcp` | PTF | needs local `.env` credentials; else `ptf.csv` |
+| TÜİK | `veriportali.tuik.gov.tr` | CPI release dates | portal API answered "access denied" → rule (D-023) or user file |
+| KAP | `www.kap.org.tr` | corporate-action verification | manual by the user |
+| CDS, 2Y/10Y yields | — | country risk, rate factor | manual CSV |

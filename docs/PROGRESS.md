@@ -39,3 +39,28 @@
 4. **Natural-gas quota unmet** under the 3-year rule (AHGAZ, ENERY are too young at 2025-11-03). Options: (a) shorten the history rule to 2 years (both become eligible), (b) add other gas distributors you verify, (c) accept 0 gas names and report it.
 5. **Manual CSVs** (see `data/manual/README.md`): `cds_tr_5y.csv`, `ptf.csv`, `ppk_decisions.csv`, `cpi_release_dates.csv`, `cpi_exp_12m_release_dates.csv`; optional `index_XELKT.csv`.
 6. Note for P4: the Anthropic models page says Sonnet 5.5 does not accept disabling thinking. `LLM_TEMPERATURE=0` and the structured-output setup must be re-checked against the current docs then.
+
+## P1 follow-ups: ✅ done (2026-11-16), see D-018 … D-030
+
+### Built / changed
+- **EVDS codes verified** via the metadata endpoints and downloaded (USD/TRY, EUR/TRY, TLREF, interbank O/N, CPI 2025=100, 12-month expectation). EVDS windowing (≤900 days/request) added after finding the ~1000-item cap.
+- **Policy rate** from TCMB's official one-week repo table (`tcmb_web` adapter).
+- **PPK decisions**: 93 meetings (2018-01 → 2026-10) pre-filled with press-release URLs → `data/manual/ppk_decisions.csv`; `ppk_detected_changes.csv` generated. Text and table agree for every meeting from June 2018 on.
+- **BIST30 lists** (both dates) from Borsa Istanbul's constituent file plus period announcements (`universe/bist_index.py`) → `config/universe.yaml` (`pending_user_review`).
+- **Energy selection** with the per-sub-sector 2-year relaxation → ENERY, AHGAZ enter as natural_gas (`entry_rule: 2y_relaxed`).
+- **Cleaning step**: `config/corporate_actions.yaml` → `prices_clean`; generic rules (non-session rows, stale zero-volume rows); jump thresholds per class; `jump_review` with 4 proposals.
+- **EPİAŞ API adapter** (TGT + MCP), plus release-date rules for CPI and the survey.
+- Tests: 60 passed; ruff clean.
+
+### Selected energy universe (2025-11-03)
+TUPRS, AYGAZ (refining) · ENERY, AHGAZ (natural gas, relaxed rule) · CANTE, ODAS, ZOREN, ENJSA, AKSEN, NATEN (electricity). TUPRS is also in BIST30.
+
+### Open issues / user actions
+1. Review `config/universe.yaml` (both BIST30 lists) → set `status: confirmed`.
+2. Confirm the energy candidates (`verified: true`).
+3. Check the 4 proposals in `config/corporate_actions.yaml` on KAP (AYGAZ 2018-03-29, 2019-03-28, 2022-09-01; NATEN 2023-11-29) and set `status: confirmed` / `rejected`, adding `source_url`. Also look at the 58 `review` cases in `docs/price_jump_review.md`, mainly those from 2022 on.
+4. Review `data/manual/ppk_decisions.csv` (rows before 2018-06-01 are flagged).
+5. Provide `cds_tr_5y.csv` (steps in `data/manual/README.md`).
+6. Decide in P3: 2Y yield (manual CSV) or TLREF as the rate factor.
+7. Optional: official CPI / survey release-date files (otherwise conservative rules); `ptf.csv`, or run the update locally with EPİAŞ credentials in `.env`.
+8. DSTKF (in the 2025-11-03 BIST30 list) has prices only from 2025-02-06, which is relevant for the P2 calibration window.

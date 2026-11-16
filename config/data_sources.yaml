@@ -1,7 +1,7 @@
 # Every time series PUSULA uses. One entry per series.
 #
 # fields
-#   source   : yfinance | evds | manual
+#   source   : yfinance | evds | tcmb_web | epias | manual
 #   code     : provider code. EVDS codes MUST be verified in EVDS metadata (never guessed);
 #              until then they are "TODO_VERIFY" and the series falls back to its manual CSV.
 #   freq     : D (daily) | M (monthly) | E (event)
@@ -24,37 +24,44 @@ indices:
 
 macro:
   # --- Türkiye: rates (EVDS)
-  - {id: policy_rate, source: evds, code: TODO_VERIFY, freq: D, fill: step, unit: "%", manual: policy_rate.csv,
-     desc: "TCMB policy rate (one-week repo auction rate)"}
-  - {id: tlref, source: evds, code: TODO_VERIFY, freq: D, fill: market, unit: "%", manual: tlref.csv,
-     desc: "TLREF overnight reference rate (Borsa Istanbul); risk-free rate for Sharpe"}
-  - {id: tr_2y, source: evds, code: TODO_VERIFY, freq: D, fill: market, unit: "%", manual: tr_2y_yield.csv,
+  # EVDS has no daily one-week-repo series (only the monthly BIS series TP.BISPOLFAIZ.TUR), so the
+  # policy rate is read from TCMB's official "1 Hafta Repo" table (D-018).
+  - {id: policy_rate, source: tcmb_web, code: one_week_repo, freq: D, fill: step, unit: "%", manual: policy_rate.csv,
+     desc: "TCMB policy rate: one-week repo lending rate, from the date it took effect"}
+  - {id: tlref, source: evds, code: TP.BISTTLREF.ORAN, freq: D, fill: market, unit: "%", manual: tlref.csv,
+     desc: "BIST TLREF overnight reference rate (from 2018-12-28); risk-free rate for Sharpe"}
+  - {id: interbank_on, source: evds, code: TP.AOFO, freq: D, fill: market, unit: "%",
+     desc: "Interbank O/N weighted average rate (archive, ends 2019-02-08); risk-free rate before TLREF (D-019)"}
+  # EVDS has no benchmark-yield series (bie_pydibs = per-ISIN indicative values only) -> manual (D-020)
+  - {id: tr_2y, source: manual, freq: D, fill: market, unit: "%", manual: tr_2y_yield.csv,
      desc: "2Y benchmark government bond yield"}
-  - {id: tr_10y, source: evds, code: TODO_VERIFY, freq: D, fill: market, unit: "%", manual: tr_10y_yield.csv,
+  - {id: tr_10y, source: manual, freq: D, fill: market, unit: "%", manual: tr_10y_yield.csv,
      desc: "10Y benchmark government bond yield"}
   # --- Türkiye: FX (EVDS indicative rates; yfinance as cross-check)
-  - {id: usdtry, source: evds, code: TODO_VERIFY, freq: D, fill: market, unit: "TRY", manual: usdtry.csv,
+  - {id: usdtry, jump_class: fx, source: evds, code: TP.DK.USD.A.YTL, freq: D, fill: market, unit: "TRY", manual: usdtry.csv,
      desc: "USD/TRY CBRT indicative buying rate"}
-  - {id: eurtry, source: evds, code: TODO_VERIFY, freq: D, fill: market, unit: "TRY", manual: eurtry.csv,
+  - {id: eurtry, jump_class: fx, source: evds, code: TP.DK.EUR.A.YTL, freq: D, fill: market, unit: "TRY", manual: eurtry.csv,
      desc: "EUR/TRY CBRT indicative buying rate"}
-  - {id: usdtry_yf, source: yfinance, code: "TRY=X", freq: D, fill: market, unit: "TRY",
+  - {id: usdtry_yf, jump_class: fx, source: yfinance, code: "TRY=X", freq: D, fill: market, unit: "TRY",
      desc: "USD/TRY market quote (Yahoo), cross-check for EVDS"}
   # --- Türkiye: inflation & expectations
-  - {id: cpi, source: evds, code: TODO_VERIFY, freq: M, fill: release, unit: "index 2003=100", manual: cpi.csv,
-     desc: "CPI (TÜİK, 2003=100); release dates from data/manual/cpi_release_dates.csv"}
-  - {id: cpi_exp_12m, source: evds, code: TODO_VERIFY, freq: M, fill: release, unit: "%", manual: cpi_exp_12m.csv,
-     desc: "Survey of Market Participants: 12-month-ahead CPI expectation"}
+  - {id: cpi, source: evds, code: TP.TUKFIY2025.GENEL, freq: M, fill: release, unit: "index 2025=100", manual: cpi.csv,
+     release_rule: "next_month_day:6",
+     desc: "CPI general index (TÜİK, 2025=100 base; the 2003=100 series is archived in EVDS)"}
+  - {id: cpi_exp_12m, source: evds, code: TP.ENFBEK.PKA12ENF, freq: M, fill: release, unit: "%", manual: cpi_exp_12m.csv,
+     release_rule: "next_month_day:1",
+     desc: "Annual inflation expectation of market participants, 12 months ahead (Sectoral Inflation Expectations)"}
   # --- Türkiye: country risk (no free official API)
   - {id: cds_5y, source: manual, freq: D, fill: market, unit: "bp", manual: cds_tr_5y.csv,
      desc: "Türkiye 5Y sovereign CDS"}
   # --- Global (Yahoo symbols; validated by `python -m pusula.universe.validate`)
-  - {id: brent, source: yfinance, code: "BZ=F", freq: D, fill: market, unit: "USD/bbl", desc: "Brent crude front-month future"}
-  - {id: ttf, source: yfinance, code: "TTF=F", freq: D, fill: market, unit: "EUR/MWh", desc: "Dutch TTF natural gas front-month future"}
+  - {id: brent, jump_class: commodity, source: yfinance, code: "BZ=F", freq: D, fill: market, unit: "USD/bbl", desc: "Brent crude front-month future"}
+  - {id: ttf, jump_class: commodity, source: yfinance, code: "TTF=F", freq: D, fill: market, unit: "EUR/MWh", desc: "Dutch TTF natural gas front-month future"}
   - {id: vix, source: yfinance, code: "^VIX", freq: D, fill: market, unit: "index", desc: "CBOE VIX"}
   - {id: us10y, source: yfinance, code: "^TNX", freq: D, fill: market, unit: "%", desc: "US 10Y Treasury yield (CBOE TNX)"}
-  - {id: dxy, source: yfinance, code: "DX-Y.NYB", freq: D, fill: market, unit: "index", desc: "US dollar index"}
+  - {id: dxy, jump_class: fx, source: yfinance, code: "DX-Y.NYB", freq: D, fill: market, unit: "index", desc: "US dollar index"}
   # --- Energy (core via manual export, D-005)
-  - {id: ptf, source: manual, freq: D, fill: market, unit: "TRY/MWh", manual: ptf.csv,
+  - {id: ptf, source: epias, freq: D, fill: market, unit: "TRY/MWh", manual: ptf.csv,
      desc: "EPİAŞ day-ahead electricity price (PTF), hourly averaged to daily"}
 
 events:

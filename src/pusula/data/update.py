@@ -18,13 +18,15 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+import httpx
 import pandas as pd
 
 from pusula.config import get_secrets, get_settings
 from pusula.data import quality
-from pusula.data.adapters import manual_csv, yfinance_adapter
+from pusula.data.adapters import epias_adapter, manual_csv, tcmb_web, yfinance_adapter
 from pusula.data.adapters.evds_adapter import EvdsClient, EvdsError
-from pusula.data.panel import trading_calendar
+from pusula.data.cleaning import rebuild_clean_prices
+from pusula.data.panel import trading_calendar, xist_sessions
 from pusula.data.ppk import compare_with_manual, detect_rate_changes
 from pusula.data.sources import DataSources, SeriesSpec, get_data_sources
 from pusula.data.store import Store
@@ -48,6 +50,7 @@ class Context:
     run_at: datetime
     yf_downloader: Callable | None = None
     evds: EvdsClient | None = None
+    http: httpx.Client | None = None  # TCMB website / EPİAŞ; None in tests = skip these sources
 
     def log(self, series: str, source: str, status: str, rows: int, msg: str = "") -> None:
         level = logging.INFO if status == "ok" else logging.WARNING
@@ -114,18 +117,47 @@ def _release_dates(ctx: Context, spec: SeriesSpec) -> pd.DataFrame | None:
     return manual_csv.read_release_dates(path)
 
 
+def rule_release_dates(periods: pd.Series, rule: str) -> pd.Series:
+    """Conservative release dates from a rule (D-023).
+
+    ``next_month_day:N`` -> first Borsa Istanbul session on or after day N of the month after
+    the reference month. Chosen so that it is never earlier than the real publication.
+    """
+    kind, _, arg = rule.partition(":")
+    if kind != "next_month_day":
+        raise ValueError(f"Unknown release rule {rule!r}")
+    month_start = pd.to_datetime(periods).dt.to_period("M").dt.to_timestamp()
+    target = month_start + pd.DateOffset(months=1) + pd.Timedelta(days=int(arg) - 1)
+    sessions = xist_sessions(target.min(), target.max() + pd.Timedelta(days=30))
+    pos = sessions.searchsorted(pd.DatetimeIndex(target))
+    return pd.Series(sessions[pos], index=periods.index)
+
+
 def _attach_release(ctx: Context, spec: SeriesSpec, df: pd.DataFrame) -> pd.DataFrame:
     if spec.fill != "release":
         return df
-    rel = _release_dates(ctx, spec)
-    if rel is None:
-        log.warning("%s: no %s_release_dates.csv -> not usable point-in-time", spec.id, spec.id)
-        if "release_date" not in df:
-            df = df.assign(release_date=pd.NaT)
-        return df
     df = df.drop(columns=["release_date"], errors="ignore")
     df["date"] = pd.to_datetime(df["date"]).dt.to_period("M").dt.to_timestamp()
-    return df.merge(rel, on="date", how="left")
+    rel = _release_dates(ctx, spec)
+    if rel is not None:  # official dates provided by the user take precedence
+        df = df.merge(rel, on="date", how="left")
+    else:
+        df["release_date"] = pd.NaT
+    missing = df["release_date"].isna()
+    if missing.any() and spec.release_rule:
+        df.loc[missing, "release_date"] = rule_release_dates(
+            df.loc[missing, "date"], spec.release_rule
+        )
+        log.info(
+            "%s: %d release dates from rule %s", spec.id, int(missing.sum()), spec.release_rule
+        )
+    elif missing.any():
+        log.warning(
+            "%s: %d rows without release date -> not usable point-in-time",
+            spec.id,
+            int(missing.sum()),
+        )
+    return df
 
 
 def _manual_macro(ctx: Context, spec: SeriesSpec) -> pd.DataFrame | None:
@@ -159,6 +191,19 @@ def update_macro(ctx: Context) -> None:
                 # monthly series: always reload fully (small, and revisions happen)
                 s0 = ctx.data_start if spec.freq == "M" else start
                 df = ctx.evds.series(spec.code, s0, ctx.today).assign(series=spec.id)
+            elif spec.source == "tcmb_web":
+                if ctx.http is None:
+                    raise RuntimeError("HTTP client not configured")
+                # the whole table is small: always reload it (start date not needed)
+                df = tcmb_web.fetch_one_week_repo(ctx.http).assign(series=spec.id)
+            elif spec.source == "epias":
+                sec = get_secrets()
+                if ctx.http is None or not (sec.epias_username and sec.epias_password):
+                    raise RuntimeError("EPİAŞ credentials not in .env (EPIAS_USERNAME/PASSWORD)")
+                tgt = epias_adapter.get_tgt(
+                    ctx.http, sec.epias_username, sec.epias_password.get_secret_value()
+                )
+                df = epias_adapter.fetch_ptf_daily(ctx.http, tgt, start, ctx.today)
         except Exception as exc:
             log.warning("%s via %s failed: %s", spec.id, spec.source, exc)
             df = None
@@ -202,16 +247,19 @@ def update_events(ctx: Context) -> None:
     out = ctx.manual_dir / "ppk_detected_changes.csv"  # helper for the user, not an input
     detected.to_csv(out, index=False, date_format="%Y-%m-%d")
     log.info("Wrote %d detected policy-rate changes to %s", len(detected), out)
-    if manual is not None:
-        cmp = compare_with_manual(detected, manual)
+    if manual is not None and not manual.empty:
+        first = manual["meeting_date"].min()
+        cmp = compare_with_manual(detected[detected["effective_date"] >= first], manual)
         bad = cmp[cmp["problem"] != ""]
         if not bad.empty:
             log.warning("PPK file vs policy-rate series mismatches:\n%s", bad.to_string())
 
 
 # --------------------------------------------------------------------------- quality
-def update_quality(ctx: Context, results_dir: Path, jump: float, stale: int) -> pd.DataFrame:
-    prices = ctx.store.prices()
+def update_quality(
+    ctx: Context, results_dir: Path, jumps: dict[str, float], stale: int
+) -> pd.DataFrame:
+    prices = ctx.store.prices()  # cleaned prices (D-024/D-025)
     macro = ctx.store.macro()
     if prices.empty:
         log.warning("No prices stored: quality report skipped")
@@ -230,14 +278,20 @@ def update_quality(ctx: Context, results_dir: Path, jump: float, stale: int) -> 
         cal,
         expected,
         {s.id: (s.source, s.freq) for s in ctx.sources.macro},
-        jump_threshold=jump,
+        jump_thresholds=jumps,
+        macro_classes={s.id: s.jump_class for s in ctx.sources.macro},
         stale_days=stale,
     )
     ctx.store.replace_quality_report(rep)
     out = results_dir / "data_quality" / ctx.run_at.strftime("%Y%m%d_%H%M%S")
     out.mkdir(parents=True, exist_ok=True)
     rep.to_csv(out / "quality_report.csv", index=False)
-    quality.jump_flags(prices, jump).to_csv(out / "jump_flags.csv", index=False)
+    quality.jump_flags(prices, jumps["stock"], jumps["index"]).to_csv(
+        out / "jump_flags.csv", index=False
+    )
+    quality.macro_jump_flags(macro, jumps, {s.id: s.jump_class for s in ctx.sources.macro}).to_csv(
+        out / "macro_jump_flags.csv", index=False
+    )
     log.info("Quality report written to %s", out)
     return rep
 
@@ -252,6 +306,7 @@ def run_update(
     store: Store | None = None,
     yf_downloader: Callable | None = None,
     evds: EvdsClient | None = None,
+    http: httpx.Client | None = None,
     today: date | None = None,
     manual_dir: Path | None = None,
     results_dir: Path | None = None,
@@ -275,16 +330,19 @@ def run_update(
         run_at=datetime.now(UTC).replace(tzinfo=None),
         yf_downloader=yf_downloader,
         evds=evds,
+        http=http,
     )
     steps = only or list(STEPS)
     if "prices" in steps:
         update_prices(ctx)
+        n = rebuild_clean_prices(store)
+        log.info("prices_clean rebuilt (%d rows, corporate actions applied)", n)
     if "macro" in steps:
         update_macro(ctx)
     if "events" in steps:
         update_events(ctx)
     if "quality" in steps:
-        update_quality(ctx, results_dir, s.data_quality.jump_threshold, s.data_quality.stale_days)
+        update_quality(ctx, results_dir, s.data_quality.jump_thresholds, s.data_quality.stale_days)
     return store.query("SELECT * FROM update_log WHERE run_at = ?", [ctx.run_at])
 
 
@@ -294,7 +352,8 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--only", nargs="+", choices=STEPS, help="run only these steps")
     args = p.parse_args(argv)
     setup_logging()
-    res = run_update(only=args.only, full=args.full)
+    with httpx.Client(timeout=60, follow_redirects=True) as http:
+        res = run_update(only=args.only, full=args.full, http=http)
     summary = res.groupby("status").size().to_dict() if not res.empty else {}
     print("\nUpdate summary:", summary)
     problems = res[res["status"] != "ok"]
