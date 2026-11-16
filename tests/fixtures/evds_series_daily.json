@@ -1,0 +1,6 @@
+{"totalCount": 4, "items": [
+  {"Tarih": "02-01-2018", "TEST_SERIES_A": "10.5", "UNIXTIME": {"$numberLong": "1514840400"}},
+  {"Tarih": "03-01-2018", "TEST_SERIES_A": "10.75", "UNIXTIME": {"$numberLong": "1514926800"}},
+  {"Tarih": "04-01-2018", "TEST_SERIES_A": null, "UNIXTIME": {"$numberLong": "1515013200"}},
+  {"Tarih": "05-01-2018", "TEST_SERIES_A": "11", "UNIXTIME": {"$numberLong": "1515099600"}}
+]}

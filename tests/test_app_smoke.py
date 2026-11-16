@@ -6,7 +6,7 @@ from streamlit.testing.v1 import AppTest
 
 from pusula.app.i18n_tr import t
 
-PAGES = Path(__file__).resolve().parents[1] / "src" / "pusula" / "app" / "pages"
+PAGES = Path(__file__).resolve().parents[1] / "src" / "pusula" / "app" / "views"
 
 
 def _all_text(at: AppTest) -> str:
@@ -25,3 +25,9 @@ def test_entrypoint_runs():
     entry = PAGES.parent / "Home.py"
     at = AppTest.from_file(str(entry), default_timeout=30).run()
     assert not at.exception
+
+
+def test_data_status_page_renders_without_db():
+    at = AppTest.from_file(str(PAGES / "veri_durumu.py"), default_timeout=30).run()
+    assert not at.exception
+    assert t("disclaimer") in _all_text(at)

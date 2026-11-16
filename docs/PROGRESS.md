@@ -7,3 +7,35 @@
 - Streamlit entry `src/pusula/app/Home.py` (`st.navigation`), Turkish strings in `app/i18n_tr.py`, disclaimer footer.
 - Docs: Turkish README, `DECISIONS.md` (D-001…D-012), `LIMITATIONS.md`, this file.
 - Verified: `uv run pytest` (7 passed), `ruff check` clean, the Streamlit home page renders with the disclaimer.
+
+## P1 · Data: ✅ code done, ⏳ waiting for user inputs (2026-11-16)
+
+### Built
+- Adapters: yfinance (stocks, indices, global series), EVDS3 (data + metadata search), manual CSV (strict schemas + clear errors). The live EPİAŞ API is optional (D-005), so PTF comes from a manual CSV.
+- `data/store.py`: DuckDB tables `prices, macro, events, universe, analysis_runs, llm_usage, update_log, quality_report`; raw Parquet snapshots in `data/raw/<source>/<YYYYMMDD>.parquet`.
+- `data/panel.py`: XIST calendar (D-013), fill rules (D-015), `as_of` point-in-time, weekly Friday close.
+- `data/cpi.py`: `deflate_historical` vs `cpi_as_of` (D-003).
+- `data/quality.py`: coverage, missing, stale, ±25% jumps, too-short history; CSV export to `results/data_quality/<ts>/`.
+- `data/ppk.py`: rate-change detection + comparison with the manual PPK file.
+- `data/update.py`: one command, incremental, per-source isolation (D-014).
+- `universe/`: loader, Yahoo validator, rule-based energy selection → `config/energy_selected.yaml`, `docs/universe_selection.md`.
+- **Veri Durumu** page (Turkish), with an update button.
+
+### Verified
+- `uv run pytest`: 44 passed (no network). Includes no-look-ahead tests for CPI, the panel and the energy selection; PPK detection on a toy series; the end-to-end update with a fake downloader.
+- `ruff check`: clean.
+- Live run in the cloud environment: Yahoo OK for all 16 energy candidates, XU100, XU030, BZ=F, TTF=F, ^VIX, ^TNX, DX-Y.NYB, TRY=X (2018 → 2026-11-16). Quality report produced.
+
+### Data findings
+- **XELKT:** Yahoo has no history (1 row) → needs `data/manual/index_XELKT.csv` if used.
+- **XU100 on Yahoo** misses some real sessions (D-013) → official XIST calendar used.
+- **Jump flags for review:** AYGAZ 2022-09-01 (+72.5%), NATEN 2020-03-12 (−25.2%), NATEN 2023-11-29 (+42.7%). Probably unadjusted bonus/rights issues; to be checked on KAP.
+- Yahoo returns stock rows on some non-session days (e.g. 2018-01-01); the panel drops them by reindexing to XIST.
+
+### Open issues / user actions
+1. **EVDS series codes not verified.** The adapter and key work, but my metadata lookup calls were blocked by this session's auto-mode permission check. Run `uv run python -m pusula.data.evds_lookup "policy" "exchange rate" "consumer price" "market participants" "tlref" "bond"` (or allow it in this session) and I'll fill the codes.
+2. **BIST30 lists** for 2026-11-01 and 2025-11-03 → `config/universe.yaml`.
+3. **Energy candidates:** confirm activity and sub-sector, set `verified: true`.
+4. **Natural-gas quota unmet** under the 3-year rule (AHGAZ, ENERY are too young at 2025-11-03). Options: (a) shorten the history rule to 2 years (both become eligible), (b) add other gas distributors you verify, (c) accept 0 gas names and report it.
+5. **Manual CSVs** (see `data/manual/README.md`): `cds_tr_5y.csv`, `ptf.csv`, `ppk_decisions.csv`, `cpi_release_dates.csv`, `cpi_exp_12m_release_dates.csv`; optional `index_XELKT.csv`.
+6. Note for P4: the Anthropic models page says Sonnet 5.5 does not accept disabling thinking. `LLM_TEMPERATURE=0` and the structured-output setup must be re-checked against the current docs then.

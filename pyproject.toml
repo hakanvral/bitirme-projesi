@@ -20,6 +20,7 @@ dependencies = [
     "streamlit>=1.45",
     "plotly>=6.0",
     "exchange-calendars>=4.10",
+    "tabulate>=0.10.0",
 ]
 
 [dependency-groups]

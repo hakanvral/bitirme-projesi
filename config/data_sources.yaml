@@ -1,0 +1,61 @@
+# Every time series PUSULA uses. One entry per series.
+#
+# fields
+#   source   : yfinance | evds | manual
+#   code     : provider code. EVDS codes MUST be verified in EVDS metadata (never guessed);
+#              until then they are "TODO_VERIFY" and the series falls back to its manual CSV.
+#   freq     : D (daily) | M (monthly) | E (event)
+#   fill     : how the panel builder forward-fills (see docs/DECISIONS.md D-015)
+#              step    -> carry last value forever (policy rate: a decision holds until changed)
+#              market  -> carry at most data_quality.max_ffill_days_market business days
+#              release -> value usable only from its release_date, then carried to the next release
+#   manual   : fallback CSV in data/manual/ (schema in data/manual/README.md)
+#   unit     : for documentation and the UI
+
+evds:
+  base_url: "https://evds3.tcmb.gov.tr/igmevdsms-dis/"
+
+price_tickers_suffix: ".IS"
+
+indices:
+  - {id: xu100, source: yfinance, code: "XU100.IS", manual: index_XU100.csv, desc: "BIST 100"}
+  - {id: xu030, source: yfinance, code: "XU030.IS", manual: index_XU030.csv, desc: "BIST 30 (availability on Yahoo to be verified)"}
+  - {id: xelkt, source: yfinance, code: "XELKT.IS", manual: index_XELKT.csv, desc: "BIST Elektrik (availability on Yahoo to be verified)"}
+
+macro:
+  # --- Türkiye: rates (EVDS)
+  - {id: policy_rate, source: evds, code: TODO_VERIFY, freq: D, fill: step, unit: "%", manual: policy_rate.csv,
+     desc: "TCMB policy rate (one-week repo auction rate)"}
+  - {id: tlref, source: evds, code: TODO_VERIFY, freq: D, fill: market, unit: "%", manual: tlref.csv,
+     desc: "TLREF overnight reference rate (Borsa Istanbul); risk-free rate for Sharpe"}
+  - {id: tr_2y, source: evds, code: TODO_VERIFY, freq: D, fill: market, unit: "%", manual: tr_2y_yield.csv,
+     desc: "2Y benchmark government bond yield"}
+  - {id: tr_10y, source: evds, code: TODO_VERIFY, freq: D, fill: market, unit: "%", manual: tr_10y_yield.csv,
+     desc: "10Y benchmark government bond yield"}
+  # --- Türkiye: FX (EVDS indicative rates; yfinance as cross-check)
+  - {id: usdtry, source: evds, code: TODO_VERIFY, freq: D, fill: market, unit: "TRY", manual: usdtry.csv,
+     desc: "USD/TRY CBRT indicative buying rate"}
+  - {id: eurtry, source: evds, code: TODO_VERIFY, freq: D, fill: market, unit: "TRY", manual: eurtry.csv,
+     desc: "EUR/TRY CBRT indicative buying rate"}
+  - {id: usdtry_yf, source: yfinance, code: "TRY=X", freq: D, fill: market, unit: "TRY",
+     desc: "USD/TRY market quote (Yahoo), cross-check for EVDS"}
+  # --- Türkiye: inflation & expectations
+  - {id: cpi, source: evds, code: TODO_VERIFY, freq: M, fill: release, unit: "index 2003=100", manual: cpi.csv,
+     desc: "CPI (TÜİK, 2003=100); release dates from data/manual/cpi_release_dates.csv"}
+  - {id: cpi_exp_12m, source: evds, code: TODO_VERIFY, freq: M, fill: release, unit: "%", manual: cpi_exp_12m.csv,
+     desc: "Survey of Market Participants: 12-month-ahead CPI expectation"}
+  # --- Türkiye: country risk (no free official API)
+  - {id: cds_5y, source: manual, freq: D, fill: market, unit: "bp", manual: cds_tr_5y.csv,
+     desc: "Türkiye 5Y sovereign CDS"}
+  # --- Global (Yahoo symbols; validated by `python -m pusula.universe.validate`)
+  - {id: brent, source: yfinance, code: "BZ=F", freq: D, fill: market, unit: "USD/bbl", desc: "Brent crude front-month future"}
+  - {id: ttf, source: yfinance, code: "TTF=F", freq: D, fill: market, unit: "EUR/MWh", desc: "Dutch TTF natural gas front-month future"}
+  - {id: vix, source: yfinance, code: "^VIX", freq: D, fill: market, unit: "index", desc: "CBOE VIX"}
+  - {id: us10y, source: yfinance, code: "^TNX", freq: D, fill: market, unit: "%", desc: "US 10Y Treasury yield (CBOE TNX)"}
+  - {id: dxy, source: yfinance, code: "DX-Y.NYB", freq: D, fill: market, unit: "index", desc: "US dollar index"}
+  # --- Energy (core via manual export, D-005)
+  - {id: ptf, source: manual, freq: D, fill: market, unit: "TRY/MWh", manual: ptf.csv,
+     desc: "EPİAŞ day-ahead electricity price (PTF), hourly averaged to daily"}
+
+events:
+  - {id: ppk_decisions, source: manual, manual: ppk_decisions.csv, desc: "TCMB MPC (PPK) rate decisions"}

@@ -1,0 +1,16 @@
+# BIST30 constituents.
+# TODO(user): paste the OFFICIAL lists from Borsa Istanbul (index constituents page / announcement).
+# Do NOT fill from memory. Ticker codes without the ".IS" suffix, e.g. "THYAO".
+#
+# reference: list in force on settings.project.reference_date (dashboard)
+# selection: list in force on settings.project.selection_date (E4 backtest, D-002)
+
+bist30:
+  reference:
+    date: "2026-11-01"
+    source: "TODO: Borsa Istanbul announcement / URL"
+    tickers: []
+  selection:
+    date: "2025-11-03"
+    source: "TODO: Borsa Istanbul announcement / URL"
+    tickers: []

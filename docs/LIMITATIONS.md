@@ -13,3 +13,6 @@ Prices come from Yahoo Finance (an unofficial API). Corporate-action adjustment 
 
 ### L-04 · Statistical power of E4
 52 weekly decisions per stock give wide confidence intervals for Sharpe-ratio differences. Partly mitigated by the long-sample non-LLM reference (D-010).
+
+### L-05 · Yahoo index data gaps
+Yahoo's XU100 history misses some real sessions (25 December in several years, 2021-04-02), and Yahoo has no history for XELKT (only the latest day). The panel uses the official XIST calendar (D-013); XELKT needs a manual CSV if it is used as a benchmark.

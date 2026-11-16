@@ -402,7 +402,7 @@ bitirme-projesi/
 │   ├── agents/               # prompts/, risk_analyst.py, scenario_analyst.py, decision.py, auditor.py, schemas.py
 │   ├── pipeline.py
 │   ├── evaluation/           # var_backtest.py, event_study.py, trading_backtest.py, llm_reliability.py, paper_results.py
-│   └── app/                  # Home.py, pages/, components/, i18n_tr.py
+│   └── app/                  # Home.py, views/ (pages), components/, i18n_tr.py
 └── tests/
 ```
 
@@ -445,7 +445,10 @@ Agents and the pipeline are tested with `MockLLMClient`. Live API tests are mark
 
 ```bash
 uv sync                                          # install
-uv run python -m pusula.data.update              # fetch/update data
+uv run python -m pusula.data.update              # fetch/update data (incremental; --full, --only)
+uv run python -m pusula.data.evds_lookup "<text>" # search EVDS metadata to verify series codes
+uv run python -m pusula.universe.validate --names # check every Yahoo symbol downloads
+uv run python -m pusula.universe.select_energy    # rule-based energy selection
 uv run streamlit run src/pusula/app/Home.py      # dashboard
 uv run pytest                                    # tests
 uv run ruff check . && uv run ruff format .      # lint/format

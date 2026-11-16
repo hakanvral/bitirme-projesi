@@ -1,0 +1,25 @@
+# Energy candidate pool (CLAUDE.md §4.2). Rule: main revenue from PRODUCING, DISTRIBUTING or
+# TRADING energy. Equipment makers / EPC contractors are excluded.
+#
+# Seeded from the names listed in CLAUDE.md. Every entry is `verified: false` until the user
+# checks the company's activity (e.g. KAP company page / annual report) and the sub-sector.
+# `name` is a short label only; the official name is printed by `python -m pusula.universe.validate`.
+# sub_sector: electricity | natural_gas | refining_petroleum
+
+candidates:
+  - {ticker: TUPRS, name: "Tüpraş",                sub_sector: refining_petroleum, verified: false}
+  - {ticker: AYGAZ, name: "Aygaz",                 sub_sector: refining_petroleum, verified: false}
+  - {ticker: AHGAZ, name: "Ahlatcı Doğal Gaz",     sub_sector: natural_gas,        verified: false}
+  - {ticker: ENERY, name: "Enerya Enerji",         sub_sector: natural_gas,        verified: false}
+  - {ticker: ENJSA, name: "Enerjisa Enerji",       sub_sector: electricity,        verified: false}
+  - {ticker: AKSEN, name: "Aksa Enerji",           sub_sector: electricity,        verified: false}
+  - {ticker: ZOREN, name: "Zorlu Enerji",          sub_sector: electricity,        verified: false}
+  - {ticker: ODAS,  name: "Odaş Elektrik",         sub_sector: electricity,        verified: false}
+  - {ticker: AKFYE, name: "Akfen Yenilenebilir",   sub_sector: electricity,        verified: false}
+  - {ticker: AYDEM, name: "Aydem Yenilenebilir",   sub_sector: electricity,        verified: false}
+  - {ticker: GWIND, name: "Galata Wind",           sub_sector: electricity,        verified: false}
+  - {ticker: NATEN, name: "Naturel Yenilenebilir Enerji",        sub_sector: electricity,        verified: false}
+  - {ticker: ENTRA, name: "IC Enterra Yenilenebilir", sub_sector: electricity,     verified: false}
+  - {ticker: CANTE, name: "Çan2 Termik",           sub_sector: electricity,        verified: false}
+  - {ticker: BIOEN, name: "Biotrend Çevre ve Enerji", sub_sector: electricity,     verified: false}
+  - {ticker: ESEN,  name: "Esenboğa Elektrik",     sub_sector: electricity,        verified: false}

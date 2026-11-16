@@ -64,3 +64,32 @@ section. IDs are stable; superseded decisions are marked, never deleted.
 - **Decision:** regime boundaries are placed at the PPK meetings that started a new policy direction: 2019-07-25 (first cut of the easing cycle), 2020-11-19 (sharp hike), 2021-09-23 (start of cuts despite high inflation), 2023-06-22 (normalization hike), 2024-12-26 (start of the 2024–26 easing). See `config/regimes.yaml`.
 - **Alternatives:** statistical break detection (e.g. Bai–Perron), possibly as a robustness check later.
 - **Reason:** policy-based boundaries are easy to explain. They will be cross-checked against `ppk_decisions.csv` once it is filled.
+
+---
+
+## Phase 1 · Data (2026-11-16)
+
+### D-013 · Trading calendar = official XIST sessions
+- **Decision:** the panel's business-day calendar is the official Borsa Istanbul calendar from `exchange_calendars` ("XIST"), limited to the date range of the stored XU100 data.
+- **Alternatives:** the dates on which Yahoo's XU100 has a close (the plan before the data check).
+- **Reason (found in the data):** Yahoo's XU100 misses real sessions (every 25 December 2018–2025 and 2021-04-02), while the stocks themselves have prices on those days. It also contains 2023-02-08, a day XIST treats as closed. The observed calendar is kept as a diagnostic (`compare_with_xist`).
+
+### D-014 · Robust update: per-source failure isolation and manual fallback
+- **Decision:** `python -m pusula.data.update` tries each series independently, logs the result to `update_log` (`ok` / `missing` / `error`) and continues. If an API fails, or an EVDS code is still `TODO_VERIFY`, it uses the series' manual CSV when one exists. Incremental runs re-download the last 10 days to pick up revisions; `INSERT OR REPLACE` keeps them idempotent.
+- **Reason:** one broken source must not block the rest; reproducible and restartable.
+
+### D-015 · Forward-fill rules per series
+- **Decision:** `step` (policy rate: a decision holds until changed), `market` (daily market series: carried at most 5 business days, then left missing), `release` (monthly CPI / survey: visible only from its release date, then carried to the next release), `none`. **Stock prices are never forward-filled** (a missing day stays missing and shows in the quality report).
+- **Reason:** keeps the panel point-in-time and makes data gaps visible instead of hiding them.
+- **Plain language:** if Brent has no price on a Turkish trading day (e.g. a US holiday) we use the previous day's price, but not for more than a week. Inflation only "exists" in the model from the day TÜİK announces it.
+
+### D-016 · Energy selection details
+- **Liquidity:** median of close (unadjusted) × volume over the last 252 trading days before `SELECTION_DATE`. This approximates daily traded value in TRY, because Yahoo has no traded-value field.
+- **Eligibility:** first price at least 3 years before `SELECTION_DATE`; no gap longer than 20 trading days in that window.
+- **Size:** dropped. There is no free point-in-time market-cap history, so the composite score = liquidity rank (logged in the output).
+- **Quotas:** the best-ranked names of each quota sub-sector are taken first; the remaining slots go to the best remaining names of any sub-sector (CLAUDE.md: "≥2 … the rest electricity"). Unmet quotas are reported, not hidden.
+- **Open (user decision):** with the 3-year rule **no natural-gas candidate is eligible** at 2025-11-03 (AHGAZ listed 2022-12-26, ENERY 2023-08-23). See PROGRESS.md open issues.
+
+### D-017 · EVDS adapter targets EVDS3
+- **Decision:** base URL `https://evds3.tcmb.gov.tr/igmevdsms-dis/` with header `key`. The parameter format follows the EVDS API (`series=…&startDate=dd-mm-yyyy&endDate=…&type=json`). Metadata (`categories/`, `datagroups/`, `serieList/`) is wrapped by `python -m pusula.data.evds_lookup`.
+- **Checked:** endpoint and auth on 2026-11-16 (`categories/` returned JSON with the key). Series download and codes are not yet verified live (see PROGRESS.md).

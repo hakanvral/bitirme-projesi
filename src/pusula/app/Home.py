@@ -13,7 +13,7 @@ import streamlit as st
 
 from pusula.app.i18n_tr import t
 
-PAGES_DIR = Path(__file__).parent / "pages"
+PAGES_DIR = Path(__file__).parent / "views"  # not "pages/": that name triggers auto-navigation
 
 st.set_page_config(page_title=t("app_title"), page_icon="🧭", layout="wide")
 

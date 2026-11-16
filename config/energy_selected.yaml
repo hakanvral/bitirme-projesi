@@ -1,0 +1,60 @@
+# GENERATED - do not edit by hand.
+# Re-run: uv run python -m pusula.universe.select_energy
+selection_date: '2025-11-03'
+generated_by: pusula.universe.select_energy
+notes:
+- 'Size criterion skipped: no reliable point-in-time market cap -> composite = liquidity
+  rank.'
+- 'Quota not met: natural_gas needs 2, only 0 eligible.'
+- 'WARNING: some selected candidates are not verified (verified: false).'
+selected:
+- ticker: TUPRS
+  name: Tüpraş
+  sub_sector: refining_petroleum
+  in_bist30: false
+  verified: false
+- ticker: CANTE
+  name: Çan2 Termik
+  sub_sector: electricity
+  in_bist30: false
+  verified: false
+- ticker: ODAS
+  name: Odaş Elektrik
+  sub_sector: electricity
+  in_bist30: false
+  verified: false
+- ticker: ZOREN
+  name: Zorlu Enerji
+  sub_sector: electricity
+  in_bist30: false
+  verified: false
+- ticker: ENJSA
+  name: Enerjisa Enerji
+  sub_sector: electricity
+  in_bist30: false
+  verified: false
+- ticker: AKSEN
+  name: Aksa Enerji
+  sub_sector: electricity
+  in_bist30: false
+  verified: false
+- ticker: NATEN
+  name: Naturel Yenilenebilir Enerji
+  sub_sector: electricity
+  in_bist30: false
+  verified: false
+- ticker: ESEN
+  name: Esenboğa Elektrik
+  sub_sector: electricity
+  in_bist30: false
+  verified: false
+- ticker: AYGAZ
+  name: Aygaz
+  sub_sector: refining_petroleum
+  in_bist30: false
+  verified: false
+- ticker: BIOEN
+  name: Biotrend Çevre ve Enerji
+  sub_sector: electricity
+  in_bist30: false
+  verified: false
