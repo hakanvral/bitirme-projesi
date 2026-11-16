@@ -1,0 +1,60 @@
+[project]
+name = "pusula"
+version = "0.1.0"
+description = "PUSULA: macro-conditioned agentic risk analysis platform for Borsa Istanbul (graduation project)"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "pandas>=3.0,<4",
+    "numpy>=2.2,<3",
+    "scipy>=1.14",
+    "statsmodels>=0.14",
+    "arch>=7.0",
+    "yfinance>=1.0",
+    "httpx>=0.28",
+    "duckdb>=1.2",
+    "pyarrow>=18",
+    "pydantic>=2.10,<3",
+    "pydantic-settings>=2.7",
+    "pyyaml>=6.0",
+    "streamlit>=1.45",
+    "plotly>=6.0",
+    "exchange-calendars>=4.10",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.11",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pusula"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "PD", "NPY", "RUF"]
+ignore = [
+    "RUF001",  # Turkish characters in strings are intentional
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/pusula/app/**" = ["N999"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -m 'not live'"
+markers = [
+    "live: tests that call real external APIs (skipped by default; run with -m live)",
+]
+filterwarnings = ["ignore::DeprecationWarning:yfinance.*"]

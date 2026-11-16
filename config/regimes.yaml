@@ -1,0 +1,28 @@
+# Default macro-policy regime boundaries (inclusive start, exclusive end).
+# Analyst choices placed at PPK meetings that started a new policy direction
+# (cross-check against data/manual/ppk_decisions.csv once it is filled; see docs/DECISIONS.md D-012).
+regimes:
+  - id: crisis_2018
+    name_tr: "2018 kur krizi ve sıkılaştırma"
+    start: "2018-01-01"
+    end: "2019-07-25"
+  - id: easing_2019_2020
+    name_tr: "2019–2020 gevşeme"
+    start: "2019-07-25"
+    end: "2020-11-19"
+  - id: tightening_2020_2021
+    name_tr: "2020 sonu – 2021 sıkılaştırma"
+    start: "2020-11-19"
+    end: "2021-09-23"
+  - id: unorthodox_2021_2023
+    name_tr: "2021–2023 alışılmadık düşük faiz dönemi"
+    start: "2021-09-23"
+    end: "2023-06-22"
+  - id: normalization_2023_2024
+    name_tr: "2023 ortası normalleşme ve sıkılaştırma"
+    start: "2023-06-22"
+    end: "2024-12-26"
+  - id: easing_2024_2026
+    name_tr: "2024–2026 gevşeme döngüsü"
+    start: "2024-12-26"
+    end: null

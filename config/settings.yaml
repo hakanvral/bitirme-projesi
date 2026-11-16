@@ -1,0 +1,40 @@
+# Global, non-secret settings. Secrets live in .env / environment secrets.
+
+project:
+  name: PUSULA
+  data_start: "2018-01-01"
+  # "today" universe (dashboard)
+  reference_date: "2026-11-01"
+  # Start of the E4 backtest window; universe + energy selection use data up to here only.
+  selection_date: "2025-11-03"
+  random_seed: 42
+
+paths:
+  data_dir: data
+  raw_dir: data/raw
+  manual_dir: data/manual
+  db_path: data/pusula.duckdb
+  results_dir: results
+
+llm:
+  # Official training-data cutoff of the configured models (Anthropic models overview,
+  # https://platform.claude.com/docs/en/models/overview, checked 2026-11-16):
+  # claude-sonnet-5-5 and claude-haiku-5-5 -> Jun 2026.
+  training_cutoff: "2026-06-30"
+  # Post-cutoff evaluation window starts the day after the cutoff month ends.
+  post_cutoff_start: "2026-07-01"
+
+data_quality:
+  jump_threshold: 0.25        # |daily simple return| above this is flagged for manual review
+  stale_days: 5               # unchanged price for more than N trading days -> stale
+  max_ffill_days_market: 5    # market series are forward-filled at most N business days
+
+risk:
+  calibration_window: 500
+  n_paths: 10000
+
+backtest:
+  transaction_cost_bp: 10
+  slippage_bp: 5
+  auditor_sample_rate: 0.10
+  long_sample_start: "2019-01-01"

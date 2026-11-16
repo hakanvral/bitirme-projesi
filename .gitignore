@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Secrets
+.env
+
+# Data & results (only manual/README and manual templates are tracked)
+data/*
+!data/manual/
+data/manual/*
+!data/manual/README.md
+!data/manual/templates/
+results/
+*.duckdb
+*.duckdb.wal
+
+# Caches
+.cache/
+.streamlit/secrets.toml
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
