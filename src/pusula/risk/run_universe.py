@@ -55,6 +55,7 @@ def run(as_of: date, bases=BASES, store: Store | None = None) -> pd.DataFrame:
             reports[(sym, basis)] = rep
             rows.append({"symbol": sym, "basis": basis, "vol_ann": rep.vol_ann_realized,
                          "cvar99_1d": rep.horizon_1d.cvar99, "selected_model": rep.selected_model,
+                         "selected_model_insample": rep.selected_model_insample,
                          "seconds": rep.seconds_total})  # fmt: skip
     summary = pd.DataFrame(rows)
     if summary.empty:
@@ -88,6 +89,22 @@ def run(as_of: date, bases=BASES, store: Store | None = None) -> pd.DataFrame:
     shutil.copy(CONFIG_DIR / "settings.yaml", out / "settings.yaml")
     table.drop(columns=["payload"]).to_csv(out / "summary.csv", index=False)
     summary.to_csv(out / "timings.csv", index=False)
+    # model-choice distribution, hold-out (default) vs in-sample critic (D-050), for the paper
+    choice = (
+        pd.concat(
+            [
+                summary.groupby(["basis", "selected_model"]).size().rename("holdout"),
+                summary.groupby(["basis", "selected_model_insample"])
+                .size()
+                .rename("in_sample")
+                .rename_axis(["basis", "selected_model"]),
+            ],
+            axis=1,
+        )
+        .fillna(0)
+        .astype(int)
+    )
+    choice.to_csv(out / "model_choice.csv")
     exc = pd.DataFrame(excluded, columns=["symbol", "reason"])
     exc.to_csv(out / "exclusions.csv", index=False)
     if as_of == s.project.selection_date:

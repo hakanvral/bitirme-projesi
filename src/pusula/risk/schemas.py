@@ -12,8 +12,11 @@ class ModelResult(BaseModel):
     fitted: bool
     failure_reason: str | None = None
     params: dict[str, float] = Field(default_factory=dict)
-    critic: dict[str, float] = Field(default_factory=dict)  # criterion_horizon -> value
-    score: float | None = None  # equal-weight average rank (lower = better)
+    critic: dict[str, float] = Field(default_factory=dict)  # hold-out criteria (default)
+    score: float | None = None  # hold-out equal-weight average rank (lower = better)
+    critic_insample: dict[str, float] = Field(default_factory=dict)
+    score_insample: float | None = None
+    holdout_failure: str | None = None  # fit on the first 80% failed
     var99_1d: float | None = None
     cvar99_1d: float | None = None
     seconds: float = 0.0
@@ -36,9 +39,13 @@ class RiskReport(BaseModel):
     n_history: int
     seed: int
     models: list[ModelResult]
+    critic_method: str = "holdout"  # how selected_model was chosen (D-050)
+    n_holdout: int = 0
     selected_model: str
     selection_by_scheme: dict[str, str]
     selection_stable: bool
+    selected_model_insample: str | None = None
+    selection_by_scheme_insample: dict[str, str] = Field(default_factory=dict)
     horizon_1d: VarBlock
     horizon_10d: VarBlock
     p_loss_10pct_1m: float

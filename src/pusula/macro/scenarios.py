@@ -17,8 +17,10 @@
    numbers), so the differences come from the shock, not from simulation noise: change in
    expected return, VaR/CVaR, probability of a loss, and the stock's rank in its universe.
 
-Returns are nominal TRY log returns; the USD view subtracts the simulated USD/TRY change. A real
-(CPI) view is not available because CPI is not a factor.
+Returns are nominal TRY log returns; the USD view subtracts the simulated USD/TRY change of the
+same path; the real view subtracts the expected inflation over the horizon (D-051).
+Note: a TRY depreciation shock can raise nominal TRY prices (exporters, FX-linked revenues) while
+lowering the same stock's USD value, so always compare the TRY and USD views.
 """
 
 from __future__ import annotations
@@ -33,6 +35,7 @@ from pusula.macro.factor_model import FactorFit
 from pusula.macro.passthrough import PassThrough
 
 HORIZONS = {"1m": 4, "3m": 13}
+Z_GUARD = 4.0  # shock beyond 4 sd of the regime's h-week distribution -> extrapolation (D-053)
 SHOCK_KEYS = {
     # input key -> (factor, conversion to factor units)
     "market_rate_bp": ("rate", lambda v: v / 100),
@@ -126,6 +129,40 @@ class Engine:
     cov_source: str
     n_paths: int = 10_000
     seed: int = 42
+    infl_exp_annual: float | None = None  # latest released 12-month CPI expectation, % (REAL)
+    mu_full: np.ndarray | None = None  # full-sample moments, used by the extrapolation guard
+    cov_full: np.ndarray | None = None
+
+    def shock_z(self, h: int, shock: dict[str, float], mu_w=None, cov_w=None) -> dict[str, float]:
+        """How many standard deviations each shock lies from the expected h-week change."""
+        mu_w = self.mu_w if mu_w is None else mu_w
+        cov_w = self.cov_w if cov_w is None else cov_w
+        out = {}
+        for f, x in shock.items():
+            i = self.factors.index(f)
+            sd = np.sqrt(h * cov_w[i, i])
+            out[f] = float((x - h * mu_w[i]) / sd) if sd > 0 else float("inf")
+        return out
+
+    def to_basis(self, R: np.ndarray, X: np.ndarray, h: int, basis: str) -> np.ndarray:
+        """Nominal TRY log returns -> basis (D-051).
+
+        USD: subtract the simulated USD/TRY log change of the same path.
+        REAL: subtract expected inflation over the horizon, h/52 * ln(1 + pi_exp), using the
+        latest market-participants expectation released by as_of (a deterministic deflator:
+        CPI is not a simulated factor).
+        """
+        if basis == "TRY":
+            return R
+        if basis == "USD":
+            if "usdtry" not in self.factors:
+                raise ValueError("USD basis needs the USD/TRY factor")
+            return R - X[:, self.factors.index("usdtry")]
+        if basis == "REAL":
+            if self.infl_exp_annual is None:
+                raise ValueError("REAL basis needs the 12-month CPI expectation")
+            return R - h / 52 * np.log1p(self.infl_exp_annual / 100)
+        raise ValueError(f"Unknown basis {basis!r}")
 
     @classmethod
     def from_weekly(
@@ -145,6 +182,9 @@ class Engine:
             sub = sub[sub.index < pd.Timestamp(end)]
         if len(sub) < 2 * len(X.columns):
             raise ValueError(f"Too few weeks ({len(sub)}) to estimate the macro covariance")
+        full = X.dropna()
+        kw.setdefault("mu_full", full.mean().to_numpy())
+        kw.setdefault("cov_full", np.cov(full.to_numpy().T))
         return cls(
             list(X.columns),
             sub.mean().to_numpy(),
@@ -166,10 +206,18 @@ class Engine:
         return z, idx
 
     def macro_draws(
-        self, h: int, shock: dict[str, float] | None, mode: str, z: np.ndarray
+        self,
+        h: int,
+        shock: dict[str, float] | None,
+        mode: str,
+        z: np.ndarray,
+        mu_w: np.ndarray | None = None,
+        cov_w: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """(n_paths, K) cumulative factor changes and their mean vector."""
-        mu, cov = h * self.mu_w, h * self.cov_w
+        mu_w = self.mu_w if mu_w is None else mu_w
+        cov_w = self.cov_w if cov_w is None else cov_w
+        mu, cov = h * mu_w, h * cov_w
         if not shock:
             return mu + z @ _chol(cov).T, mu
         i1 = [self.factors.index(f) for f in shock]
@@ -205,23 +253,30 @@ class Engine:
     ) -> dict:
         h = HORIZONS[horizon]
         z, idx = self._random(h)
-        Xb, mean_b = self.macro_draws(h, None, mode, z)
+        # Extrapolation guard (D-053): a shock far outside the selected regime's experience makes
+        # the regime's conditional relationships meaningless, so propagated mode then uses the
+        # full-sample moments (for baseline and scenario alike).
+        mu_w, cov_w, cov_used = self.mu_w, self.cov_w, self.cov_source
+        zs = self.shock_z(h, shock.factor_shocks) if shock and shock.factor_shocks else {}
+        guard = bool(zs) and max(abs(v) for v in zs.values()) > Z_GUARD
+        if guard and mode == "propagated" and self.cov_full is not None and cov_used != "full":
+            mu_w, cov_w, cov_used = self.mu_full, self.cov_full, "full (guard)"
+            zs_used = self.shock_z(h, shock.factor_shocks, mu_w, cov_w)
+        else:
+            zs_used = zs
+        Xb, mean_b = self.macro_draws(h, None, mode, z, mu_w, cov_w)
         variants = {"central": shock.factor_shocks if shock else None}
         if shock and shock.rate_band:
             for name, val in (("low", shock.rate_band[0]), ("high", shock.rate_band[2])):
                 variants[name] = {**shock.factor_shocks, "rate": val}
-        draws = {k: self.macro_draws(h, v, mode, z) for k, v in variants.items() if v}
+        draws = {k: self.macro_draws(h, v, mode, z, mu_w, cov_w) for k, v in variants.items() if v}
         rows = []
         for sym in self.fits:
-            Rb = self.stock_returns(sym, Xb, h, idx[sym])
-            if basis == "USD":
-                Rb = Rb - Xb[:, self.factors.index("usdtry")]
+            Rb = self.to_basis(self.stock_returns(sym, Xb, h, idx[sym]), Xb, h, basis)
             base = _stats(Rb)
             row = {"symbol": sym, **{f"base_{k}": v for k, v in base.items()}}
             for name, (Xs, _) in draws.items():
-                Rs = self.stock_returns(sym, Xs, h, idx[sym])
-                if basis == "USD":
-                    Rs = Rs - Xs[:, self.factors.index("usdtry")]
+                Rs = self.to_basis(self.stock_returns(sym, Xs, h, idx[sym]), Xs, h, basis)
                 st = _stats(Rs)
                 if name == "central":
                     row.update({f"scen_{k}": v for k, v in st.items()})
@@ -249,7 +304,10 @@ class Engine:
             "horizon_weeks": h,
             "mode": mode,
             "basis": basis,
-            "cov_source": self.cov_source,
+            "cov_source": cov_used,
+            "shock_z_regime": zs,  # sd units under the selected regime
+            "shock_z_used": zs_used,  # sd units under the moments actually used
+            "extrapolation_guard": cov_used == "full (guard)",
         }
 
 

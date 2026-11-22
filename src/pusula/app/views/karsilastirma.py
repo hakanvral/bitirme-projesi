@@ -27,8 +27,8 @@ def _ctx(as_of: date):
     return build_context(store(), as_of)
 
 
-@st.cache_data(show_spinner=False, max_entries=4)
-def _sensitivity(as_of: date) -> pd.DataFrame:
+@st.cache_data(show_spinner=False, max_entries=12)
+def _sensitivity(as_of: date, basis: str) -> pd.DataFrame:
     ctx = _ctx(as_of)
     eng = make_engine(ctx)
     pt = current_passthrough(ctx)
@@ -37,7 +37,7 @@ def _sensitivity(as_of: date) -> pd.DataFrame:
         spec = to_factor_shocks(sc.shocks, eng.factors, pt)
         if not spec.factor_shocks:
             continue
-        us = universe_summary(eng.run(spec, "3m", "propagated")["stocks"])
+        us = universe_summary(eng.run(spec, "3m", "propagated", basis)["stocks"])
         rows.append(us.assign(scenario=sc.name_tr))
     return pd.concat(rows, ignore_index=True)
 
@@ -45,6 +45,9 @@ def _sensitivity(as_of: date) -> pd.DataFrame:
 as_of = latest_session()
 ctx = _ctx(as_of)
 missing_input_warnings(ctx.fp.missing)
+bases = ["TRY", "USD"] + (["REAL"] if ctx.infl_exp_annual is not None else [])
+basis = st.radio(t("basis_label"), bases, format_func=lambda k: t(f"basis_{k}"), horizontal=True)
+st.caption(t(f"cmp_basis_note_{basis}"))
 mem = ctx.members[ctx.members["symbol"].isin(ctx.fits_a)].copy()
 mem["sub_sector"] = mem["sub_sector"].where(mem["sub_sector"].notna(), "")
 mem = mem.sort_values(["universe", "sub_sector", "ticker"])
@@ -66,6 +69,8 @@ for r in mem.itertuples():
     row, trow = [], []
     for c in factors:
         b = f.beta.get(c, np.nan)
+        if basis == "USD" and c == "usdtry":
+            b = b - 1.0  # r_USD = r_TRY - d ln(USD/TRY): the USD/TRY beta falls by exactly 1
         v = b * sd[c] if scale == "std" else b
         row.append(v * 100 if scale == "std" else v)
         star = "*" if f.pval.get(c, 1) < 0.05 else ""
@@ -104,7 +109,8 @@ for r in mem.itertuples():
     f = ctx.fits_a[r.symbol]
     grp = "BIST30" if r.universe == "BIST30" else r.sub_sector
     for c in factors:
-        rows.append({"group": grp, "factor": c, "std_beta": f.beta.get(c, np.nan) * sd[c] * 100})
+        b = f.beta.get(c, np.nan) - (1.0 if basis == "USD" and c == "usdtry" else 0.0)
+        rows.append({"group": grp, "factor": c, "std_beta": b * sd[c] * 100})
 g = pd.DataFrame(rows).groupby(["group", "factor"], as_index=False)["std_beta"].mean()
 fig = go.Figure()
 for grp, gg in g.groupby("group"):
@@ -125,7 +131,7 @@ st.plotly_chart(fig, use_container_width=True)
 
 # ----------------------------------------------------------------------------- sensitivity
 st.subheader(t("cmp_sens"))
-sens = _sensitivity(as_of)
+sens = _sensitivity(as_of, basis)
 samp = st.radio(
     "",
     ["all", "no_overlap"],

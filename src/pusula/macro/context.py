@@ -29,14 +29,19 @@ class MacroContext:
     passthrough: dict[str, PassThrough]
     current_regime: str | None
     warnings: list[str] = field(default_factory=list)
+    infl_exp_annual: float | None = None  # latest released 12-month CPI expectation (%)
 
 
-def build_context(store: Store, as_of: date) -> MacroContext:
+def build_context(
+    store: Store, as_of: date, exclude_sources: set[str] | None = None
+) -> MacroContext:
     s = get_settings()
     regimes = get_regimes()
     mem = universe_members(as_of)
     syms = sorted(mem["symbol"].unique())
-    fp = build_factor_panel(store.prices(end=as_of), store.macro(), syms, as_of)
+    fp = build_factor_panel(
+        store.prices(end=as_of), store.macro(), syms, as_of, exclude_sources=exclude_sources
+    )
     avail = list(fp.X.columns)
     sub = mem.drop_duplicates("symbol").set_index("symbol")["sub_sector"]
     fits_a, fits_b, skipped = {}, {}, {}
@@ -61,8 +66,21 @@ def build_context(store: Store, as_of: date) -> MacroContext:
     except (ManualFileError, TypeError, AttributeError) as exc:
         ev, pt = pd.DataFrame(), {}
         warnings.append(f"passthrough:{exc}")
+    exp = store.macro(["cpi_exp_12m"])
+    exp = exp[exp["release_date"] <= pd.Timestamp(as_of)].sort_values("date")
+    infl = float(exp["value"].iloc[-1]) if not exp.empty else None
     return MacroContext(
-        as_of, fp, mem, fits_a, fits_b, skipped, ev, pt, regimes.regime_of(as_of), warnings
+        as_of,
+        fp,
+        mem,
+        fits_a,
+        fits_b,
+        skipped,
+        ev,
+        pt,
+        regimes.regime_of(as_of),
+        warnings,
+        infl_exp_annual=infl,
     )
 
 
@@ -85,11 +103,18 @@ def make_engine(ctx: MacroContext, cov_regime: str = "current", n_paths: int = 1
                 cov_source=rid,
                 n_paths=n_paths,
                 seed=seed,
+                infl_exp_annual=ctx.infl_exp_annual,
             )
         except ValueError:
             pass
     return Engine.from_weekly(
-        ctx.fp.X, ctx.fits_a, members, cov_source="full", n_paths=n_paths, seed=seed
+        ctx.fp.X,
+        ctx.fits_a,
+        members,
+        cov_source="full",
+        n_paths=n_paths,
+        seed=seed,
+        infl_exp_annual=ctx.infl_exp_annual,
     )
 
 

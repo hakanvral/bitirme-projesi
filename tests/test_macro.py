@@ -264,3 +264,35 @@ def test_short_2y_file_falls_back_to_tlref():
     fp = build_factor_panel(p, macro, [], date(2023, 12, 29))
     assert fp.rate_source == "tlref_spliced" and "rate" in fp.X.columns
     assert "tr_2y(short)" in fp.missing
+
+
+def test_scenario_bases_usd_and_real():
+    X, _ = _synthetic()
+    eng = _engine(X, {"usdtry": 1.0, "brent": 0.0, "rate": 0.0, "vix": 0.0})
+    eng.infl_exp_annual = 26.0
+    shock = ShockSpec({"usdtry": np.log(1.15)})
+    tr = eng.run(shock, "3m", "isolated", "TRY")["stocks"].iloc[0]
+    usd = eng.run(shock, "3m", "isolated", "USD")["stocks"].iloc[0]
+    real = eng.run(shock, "3m", "isolated", "REAL")["stocks"].iloc[0]
+    # beta_usdtry = 1: the TRY price rises with the shock, the USD value does not
+    assert tr["d_exp_ret"] > 0.05 and abs(usd["d_exp_ret"]) < 0.01
+    # real = nominal minus a deterministic 13/52 * ln(1.26)
+    assert real["base_exp_ret"] < tr["base_exp_ret"]
+    eng.infl_exp_annual = None
+    with pytest.raises(ValueError):
+        eng.run(shock, "3m", "isolated", "REAL")
+
+
+def test_extrapolation_guard_switches_to_full_sample():
+    X, _ = _synthetic()
+    eng = _engine(X, {"usdtry": 1.0, "brent": 0.0, "rate": 0.0, "vix": 0.0})
+    # pretend the selected regime has a much calmer USD/TRY than the full sample
+    eng.cov_w = eng.cov_w.copy()
+    eng.cov_w[0, :] *= 0.1
+    eng.cov_w[:, 0] *= 0.1
+    eng.cov_source = "calm_regime"
+    small = eng.run(ShockSpec({"rate": 0.5}), "1m", "propagated")
+    big = eng.run(ShockSpec({"usdtry": np.log(1.5)}), "1m", "propagated")
+    assert not small["extrapolation_guard"] and small["cov_source"] == "calm_regime"
+    assert big["extrapolation_guard"] and big["cov_source"] == "full (guard)"
+    assert max(abs(v) for v in big["shock_z_regime"].values()) > 4

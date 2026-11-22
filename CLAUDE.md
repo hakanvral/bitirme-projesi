@@ -80,16 +80,17 @@ What we take from it:
 | Data access | yfinance, requests / httpx |
 | Storage | **DuckDB** (`data/pusula.duckdb`) + Parquet snapshots of raw downloads |
 | Config & schemas | pydantic v2, pydantic-settings, YAML configs in `config/` |
-| LLM | `anthropic` SDK behind our own `LLMClient` interface (so we can switch to a local model via Ollama later) |
+| LLM | Own `LLMClient` interface; default `OpenAICompatibleClient` → **NVIDIA NIM free tier** (also Ollama / any OpenAI-compatible endpoint); `AnthropicClient` optional (D-054) |
 | Orchestration | **Plain Python pipeline** (no LangChain/LangGraph); easier to explain in the paper |
 | UI | **Streamlit** (multipage) + Plotly, runs locally in the browser |
 | Quality | pytest, ruff, type hints everywhere |
 
-**LLM defaults** (overridable in `.env`):
-- `LLM_PROVIDER=anthropic`
-- `ANTHROPIC_MODEL=claude-sonnet-5-5` for the analyst and decision agents
-- `ANTHROPIC_MODEL_LIGHT=claude-haiku-5-5` for the auditor and cheap tasks
-- `LLM_TEMPERATURE=0`
+**LLM defaults** (`config/settings.yaml` → `llm`, overridable in `.env`; D-054, D-055):
+- provider `openai_compatible`, base_url `https://integrate.api.nvidia.com/v1`, key `NVIDIA_API_KEY` (cloud: network secret)
+- model `nvidia/nemotron-3-ultra-550b-a55b` for analysts, decision **and** auditor (no smaller model passed the auditor test)
+- 35 requests/min client-side limit, up to 4 parallel requests, temperature 0.2, max 4096 tokens
+- lean (E4) calls: reasoning off (`enable_thinking: false`, D-061)
+- cost = 0 on the free tier: track tokens and latency (cost fields kept)
 
 ---
 
@@ -322,15 +323,15 @@ Users can also build custom scenarios in the UI.
 - Setup:
   - **Weekly** decisions, long-only (long or cash).
   - Default test window: the last 12 months, starting at `SELECTION_DATE`.
-- **Post-cutoff window:** `LLM_TRAINING_CUTOFF` (in `config/settings.yaml`) is the official training-data cutoff of the configured model, taken from Anthropic's model docs (Sonnet 5.5 and Haiku 5.5: **Jun 2026**, checked 2026-11-16). The post-cutoff window starts the month after it (2026-07-01 → today). Reported as a **supplementary** result even if short; anonymized mode remains the **main** look-ahead control.
+- **Post-cutoff window:** `LLM_TRAINING_CUTOFF` (in `config/settings.yaml`) is the official training-data cutoff of the configured model. Nemotron 3 Ultra model card: post-training data cutoff **May 2026**, pre-training Sep 2025 (checked 2026-11-22, D-062). The post-cutoff window starts 2026-06-01 → today. Reported as a **supplementary** result even if short; anonymized mode remains the **main** look-ahead control.
   - Transaction cost 10 bp + slippage 5 bp (configurable).
   - Default subset: 10 stocks (5 BIST30 + 5 Energy) to control cost; full universe optional.
 - **Cost control (structural):**
   - **Lean backtest mode** (default for E4): each stock-week = **one** structured decision call that receives the precomputed JSON directly (no narrative agents, no Bull/Bear).
   - The **full** Bull/Bear/Judge pipeline is evaluated on a smaller random sample of stock-weeks.
   - Auditor runs on a ~10% random sample (seeded).
-  - Backtests support the Anthropic **Message Batches API** and **prompt caching** (verify current docs in P4/P6).
-  - A cost estimate is printed and confirmed before **every** batch run.
+  - No batch API on the free tier: rate-limited (35 RPM), parallel (≤4), **resumable** batch runs (cached calls are skipped).
+  - A **wall-clock estimate** (`python -m pusula.agents.plan`) is printed and confirmed before **every** batch run.
 - Strategies:
   - Buy & hold (each stock)
   - XU030
@@ -455,6 +456,7 @@ uv run python -m pusula.data.prefill ppk          # pre-fill ppk_decisions.csv f
 uv run python -m pusula.data.jump_review --write  # classify price jumps, propose corrections
 uv run python -m pusula.risk.run_universe --as-of YYYY-MM-DD  # risk reports + relative risk levels
 uv run python -m pusula.macro.run --as-of YYYY-MM-DD  # factor models, pass-through, preset scenarios
+uv run python -m pusula.agents.plan              # E4/E5 wall-clock estimate at the rate limit
 uv run streamlit run src/pusula/app/Home.py      # dashboard
 uv run pytest                                    # tests
 uv run ruff check . && uv run ruff format .      # lint/format
@@ -471,7 +473,7 @@ Details, alternatives and reasons are in `docs/DECISIONS.md` (D-001 …). Short 
 - Two CPI functions (historical deflation vs point-in-time `cpi_as_of`).
 - Merton core (robust calibration); GJR-GARCH optional.
 - EPİAŞ PTF core via manual CSV; live EPİAŞ API optional.
-- E4 lean mode + Batches API + prompt caching + 10% auditor sample + cost estimate before every batch.
+- E4 lean mode + Batches API + prompt caching + 10% auditor sample + cost estimate before every batch. *(Batches API and prompt caching superseded by D-054/D-057: NIM free tier)*
 - `LLM_TRAINING_CUTOFF` from official docs; post-cutoff window as supplementary result.
 - Rate shock input as policy-rate or 2Y-yield change; regime-specific pass-through with uncertainty band.
 - VIF reported; OLS default; ridge optional.
@@ -490,3 +492,10 @@ Phase 2–3 (2026-11-22, D-031 … D-048):
 - Risk engine reads `prices_clean`; <250 returns → no report; EVT on full history (≥750, ≥20 clusters); relative risk level ("evren içi göreli"); critic equal-weight ranks plus sensitivity schemes; model failures skipped and recorded.
 - Inputs committed: `ppk_decisions.csv`, `corporate_actions.yaml`, `universe.yaml`; never investing.com-derived files.
 - Factor model: weekly, TLREF as rate factor until the 2Y yield is provided; first 4 weeks after listing dropped; scenarios use Model A, the current-regime covariance, common random numbers, and mean + median universe summaries.
+
+P2/P3 revisions and Phase 4 (2026-11-22, D-049 … D-062):
+- Risk critic: **hold-out** (fit on the first 80%, score on the realized last 20%, refit on all) is the default; in-sample kept as a variant.
+- Scenarios in TRY, USD and Reel (expected-inflation deflator); extrapolation guard (>4 sd → full-sample moments).
+- Rate factor = 2Y yield (≥2 years of history), TLREF as a robustness comparison; CDS included.
+- LLM: NVIDIA NIM (Nemotron 3 Ultra), OpenAI-compatible client, JSON mode + pydantic retries, SQLite cache, 35 RPM limiter, resumable batches, tokens/latency logging.
+- Agents: Risk Analisti, Senaryo Analisti, Bull/Bear/Judge, Denetçi (numeric check with Turkish number formats + LLM consistency, regenerate once). Modes full/lean/anonymized; ablations P, P+R, P+R+S.

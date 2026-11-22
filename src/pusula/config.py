@@ -31,11 +31,16 @@ class Secrets(BaseSettings):
         env_file=ROOT_DIR / ".env", env_file_encoding="utf-8", extra="ignore"
     )
 
-    llm_provider: str = "anthropic"
+    # Overrides for config/settings.yaml (llm section); empty = use the YAML value.
+    llm_provider: str | None = None
+    llm_base_url: str | None = None
+    llm_model: str | None = None
+    llm_model_light: str | None = None
+    nvidia_api_key: SecretStr | None = None
+    llm_api_key: SecretStr | None = None  # generic key for other OpenAI-compatible endpoints
     anthropic_api_key: SecretStr | None = None
     anthropic_model: str = "claude-sonnet-5-5"
     anthropic_model_light: str = "claude-haiku-5-5"
-    llm_temperature: float = 0.0
 
     evds_api_key: SecretStr | None = None
     epias_username: str | None = None
@@ -46,6 +51,8 @@ class Secrets(BaseSettings):
     def key_status(self) -> dict[str, bool]:
         """Which keys are configured (booleans only - safe to show in the UI)."""
         return {
+            "NVIDIA_API_KEY": bool(self.nvidia_api_key),
+            "LLM_API_KEY": bool(self.llm_api_key),
             "ANTHROPIC_API_KEY": bool(self.anthropic_api_key),
             "EVDS_API_KEY": bool(self.evds_api_key),
             "EPIAS_USERNAME": bool(self.epias_username),
@@ -86,6 +93,28 @@ class PathsCfg(BaseModel):
 class LLMCfg(BaseModel):
     training_cutoff: date
     post_cutoff_start: date
+    provider: str = "openai_compatible"
+    base_url: str = "https://integrate.api.nvidia.com/v1"
+    model: str = "nvidia/nemotron-3-ultra-550b-a55b"
+    model_light: str = "nvidia/nemotron-3-ultra-550b-a55b"
+    api_key_env: str = "NVIDIA_API_KEY"
+    rpm: int = 35
+    max_concurrency: int = 4
+    timeout_s: float = 180
+    max_tokens: int = 4096
+    temperature: float = 0.2
+    json_mode: str = "auto"
+    max_json_retries: int = 2
+    max_backoff_retries: int = 6
+    cache_path: Path = Path("data/llm_cache.sqlite")
+    extra_body: dict = {}  # merged into every request (all agents)
+    extra_body_lean: dict = {}  # merged into lean-mode requests only (E4 throughput)
+
+    @model_validator(mode="after")
+    def _abs_cache(self) -> LLMCfg:
+        if not self.cache_path.is_absolute():
+            self.cache_path = ROOT_DIR / self.cache_path
+        return self
 
 
 class DataQualityCfg(BaseModel):
@@ -113,6 +142,7 @@ class RiskCfg(BaseModel):
     n_paths: int = 10_000
     horizon_days: int = 63
     critic_paths: int = 200
+    critic_holdout_share: float = 0.2  # hold-out critic: last 20% of the window (100 of 500)
     merton_threshold: float = 3.0
     merton_min_jumps: int = 3
     evt: EvtCfg = EvtCfg()

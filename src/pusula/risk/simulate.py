@@ -11,7 +11,7 @@ from datetime import date
 
 import numpy as np
 
-PURPOSE = {"critic": 1, "forward": 2}
+PURPOSE = {"critic": 1, "forward": 2, "holdout": 3}
 
 
 def rng_for(

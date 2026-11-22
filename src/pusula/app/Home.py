@@ -24,6 +24,8 @@ for fname, key, icon in (
     ("hisse_risk.py", "nav_risk", "📉"),
     ("senaryo.py", "nav_scenario", "🧪"),
     ("karsilastirma.py", "nav_compare", "⚖️"),
+    ("ajan_karari.py", "nav_agent", "🤖"),
+    ("ayarlar.py", "nav_settings", "⚙️"),
 ):
     if (PAGES_DIR / fname).exists():
         pages.append(st.Page(PAGES_DIR / fname, title=t(key), icon=icon))

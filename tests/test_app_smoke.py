@@ -45,3 +45,10 @@ def test_macro_pages_render(page):
     at = AppTest.from_file(str(PAGES / page), default_timeout=180).run()
     assert not at.exception
     assert t("disclaimer") in _all_text(at)
+
+
+@pytest.mark.parametrize("page", ["ajan_karari.py", "ayarlar.py"])
+def test_agent_pages_render_without_llm_calls(page):
+    at = AppTest.from_file(str(PAGES / page), default_timeout=120).run()
+    assert not at.exception
+    assert t("disclaimer") in _all_text(at)

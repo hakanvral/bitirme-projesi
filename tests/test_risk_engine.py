@@ -96,3 +96,19 @@ def test_log_returns_drop_long_gaps():
     px.iloc[2:9] = np.nan  # 7 missing sessions
     r = log_returns(px, max_gap=5)
     assert idx[9] not in r.index and len(r) == 1 + 2  # first gap-free pair + last two
+
+
+def test_holdout_critic_is_default_and_in_sample_is_kept(tmp_path):
+    rep = engine.compute_risk_report(
+        engine.load_inputs(_store(tmp_path), T), "AAA.IS", "TRY", CFG, seed=3
+    )
+    assert rep.critic_method == "holdout" and rep.n_holdout == 60  # 20% of a 300-day window
+    assert rep.selected_model_insample is not None
+    assert set(rep.selection_by_scheme_insample) == set(rep.selection_by_scheme)
+    fitted = [m for m in rep.models if m.fitted]
+    assert all(m.score is not None and m.score_insample is not None for m in fitted)
+    assert all(k.endswith(("_1d", "_10d")) for k in fitted[0].critic)
+    # the report uses the full-window fit of the selected model (not the 80% hold-out fit)
+    gbm = next(m for m in rep.models if m.name == "GBM")
+    r = engine.daily_returns(engine.load_inputs(_store(tmp_path / "x"), T), "AAA.IS", "TRY", 5)
+    assert gbm.params["sigma"] == pytest.approx(r.iloc[-300:].std(ddof=1))

@@ -94,8 +94,12 @@ def build_factor_panel(
     symbols: list[str],
     as_of: date,
     start: date | None = None,
+    exclude_sources: set[str] | None = None,
 ) -> FactorPanel:
-    """Weekly factors and weekly stock log returns using only data up to ``as_of``."""
+    """Weekly factors and weekly stock log returns using only data up to ``as_of``.
+
+    ``exclude_sources`` removes candidate series, e.g. {"tr_2y"} to force TLREF as the rate
+    factor for a robustness comparison (D-052)."""
     macro = splice_tlref(macro)
     upto = macro[macro["date"] <= pd.Timestamp(as_of)].dropna(subset=["value"])
     weeks = upto.groupby("series")["date"].apply(lambda d: d.dt.to_period("W-FRI").nunique())
@@ -103,6 +107,7 @@ def build_factor_panel(
     for fid, (_, cands) in FACTOR_DEFS.items():
         # first candidate with enough history; a short file (e.g. a 2Y export covering only a
         # few weeks) must not knock out the factor: fall back to the next candidate (D-049)
+        cands = [c for c in cands if c not in (exclude_sources or set())]
         long_enough = [c for c in cands if weeks.get(c, 0) >= MIN_SERIES_WEEKS]
         for c in cands:
             if c in weeks and weeks[c] < MIN_SERIES_WEEKS:

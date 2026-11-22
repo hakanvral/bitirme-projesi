@@ -229,3 +229,77 @@ section. IDs are stable; superseded decisions are marked, never deleted.
 ### D-049 · A rate source must have enough history
 - **Decision:** a factor's source series is used only if it has at least 104 weeks of data up to `as_of`; otherwise the next candidate is used (for the rate factor: `tr_2y` → TLREF spliced). The page warns "tr_2y(short)".
 - **Reason:** the first 2Y yield export (investing.com) covered only 2026-10-22 → 2026-11-20 (21 days). Without this rule it would have replaced TLREF and then been dropped as too short, removing the rate factor entirely.
+
+---
+
+## P2/P3 revisions and Phase 4 · Agents (2026-11-22)
+
+### D-050 · Hold-out critic is the default (user revision)
+- **Decision:** each model is calibrated on the first 80% of the 500-day window (400 days) and simulates the last 20% (100 days) forward from its state at day 400 (200 paths). The simulated 1-day and 10-day returns are scored against the **realized** last 100 days with the same 8 criteria and rank averaging. The chosen model is refit on all 500 days for the report. The in-sample critic (D-034) is kept as a reported variant (`selected_model_insample`, `score_insample`). Shorter windows use the same 80/20 split.
+- **Reason:** in-sample, HS resamples the very history it is scored on, so it wins structurally.
+- **Result (231 reports, 2025-11-03 and 2026-11-20):**
+
+| Selected model | Hold-out (default) | In-sample |
+|---|---|---|
+| GBM | 63 | 0 |
+| GARCH-t | 54 | 4 |
+| HS | 53 | 209 |
+| FHS | 47 | 17 |
+| Merton | 14 | 1 |
+
+- Per-run distributions are in `results/risk_universe/<run>/model_choice.csv`.
+
+### D-051 · Scenario results in TRY, USD and real terms (user revision)
+- **Decision:** scenario results are computed in three bases. **USD** = TRY log return − the simulated USD/TRY change of the same path. **Real** = TRY log return − expected inflation over the horizon, h/52 · ln(1 + π), where π is the latest market-participants 12-month CPI expectation released by as_of (deterministic; CPI is not a simulated factor). Batch outputs (`scenario_results`, `universe_summary.csv`) contain all three bases. Both pages have a basis toggle. On BIST30 vs Enerji, the USD view lowers the USD/TRY beta by exactly 1, and the real view leaves betas unchanged.
+- **Note for the paper:** a TRY depreciation shock can **raise nominal TRY prices** (exporters, FX-linked revenues) while **lowering the same stock's USD value**. Example (2026-11-20, 3 months, propagated): Kur şoku → BIST30 mean −0.2% in TRY but −7.2% in USD; Energy −1.3% in TRY but −8.3% in USD.
+
+### D-052 · New data: CDS and the 2Y yield; rate-factor comparison
+- **Decision (user rule):** the 2Y yield (investing.com export, 2018-01-02 → 2026-11-20, 2,141 days) now has more than 2 years of history, so it is the rate factor; TLREF is kept as a robustness comparison (`rate_source_comparison.csv`). CDS (2018-01-01 → 2026-11-19, 2,308 days) enters as a factor. The earlier, too short exports (21 and 20 days) were handled by D-049.
+- **Results (Model A / Model B mean R²):** BIST30 0.140 / 0.462 and Energy 0.091 / 0.286 (before: 0.057 / 0.458 and 0.054 / 0.283). CDS is significant for 90% of stocks; max VIF 1.64.
+- **Pass-through to the 2Y yield is weak:** current regime β = 0.19 (90% band −0.29 … 0.67); pooled 0.10 [−0.03, 0.23]. With TLREF it was 0.97. Policy-rate scenarios therefore move the market rate much less, and their effects shrink. For example, faiz artırımı +500 bp (3 months, TRY): BIST30 −1.35% (2Y) vs −2.85% (TLREF); Energy −1.16% vs −0.66%. Plain language: the 2-year yield already prices in expected policy, so on decision days it moves far less than the overnight rate.
+- **CDS scenario (Ülke riski +200 bp, 3 months, propagated):** BIST30 −16.0% (median −16.1%), Energy −11.4% (median −11.8%) in TRY; −17.3% / −12.9% in USD. In isolated mode: −10.7% / −6.7%.
+
+### D-053 · Extrapolation guard for propagated scenarios
+- **Decision:** a shock's size is measured in standard deviations of the selected regime's h-week distribution. If any shock lies beyond **4 sd**, propagated mode uses the **full-sample** moments for that run (baseline and scenario), and the run records `extrapolation_guard` and the z-score. The page warns.
+- **Reason (found in the data):** in the current regime USD/TRY is tightly managed (weekly σ 0.37%), so a +15% shock is about 25 sd outside the regime. Gaussian conditioning then extrapolated absurd companion moves (rate +24 pp, CDS +166 bp, VIX −14), giving −18% for both universes. With the guard, Kur şoku uses the full sample (z = 6.9); all other presets stay below 4 sd and keep the regime covariance.
+
+### D-054 · LLM provider: NVIDIA NIM free tier via an OpenAI-compatible client (user decision)
+- **Decision:** `OpenAICompatibleClient` is the default (`https://integrate.api.nvidia.com/v1`, `Authorization: Bearer`, key `NVIDIA_API_KEY` stored as a cloud network secret). The same client serves Ollama (`http://localhost:11434/v1`) and other compatible providers. `AnthropicClient` is optional; `MockLLMClient` is used in all tests. Settings live in `config/settings.yaml` (`llm`), with `.env` overrides. The Message Batches API and prompt caching were dropped (not available).
+
+### D-055 · Model choice (comparison for the paper)
+Test: the same real analysis (THYAO, 2026-11-20, full mode, 6 calls), a lean decision call and an auditor-only call, on NIM's free tier.
+
+| Model | Role tested | Result |
+|---|---|---|
+| nvidia/nemotron-3-ultra-550b-a55b | full pipeline (THYAO, ENJSA), lean, auditor | Valid JSON at the first attempt in 11 of 12 agent calls (1 auditor retry). Numeric audit 222/222 and 185/185 numbers found in the input; consistency OK; fluent, careful Turkish. ~25–70 s per call with reasoning on (≈250–270 s per full analysis); lean 14–38 s with reasoning on, **~2 s with reasoning off** |
+| nvidia/nemotron-3.5-lightning-30b-a3b | auditor, lean | Auditor: empty replies 3/3 (failed). Lean: valid, 6.5 s, but weaker Turkish (mixes English terms) |
+| z-ai/glm-5.3-flash | auditor | Empty replies 3/3, 698 s (failed) |
+| mistralai/mistral-large-4-1t-a52b | full pipeline | see the PROGRESS note (still running at the time of writing; the probe gave empty content at 600 tokens and ~50 s per call) |
+| moonshotai/kimi-k3.1-pro | full pipeline | see the PROGRESS note (probe: empty content / timeouts) |
+| google/gemma-4-31b-it | lean | probe: timeouts at 120 s |
+
+- **Decision:** **Nemotron 3 Ultra** for the analysts, decision and auditor. No smaller model passed the auditor test, so `model_light` = the same model.
+- **Caveat:** Turkish is **not** in the model card's list of supported languages; quality is judged on the outputs (examples in PROGRESS / the P4 summary).
+
+### D-056 · Structured output
+- **Decision:** JSON mode (`response_format: json_object`) when the endpoint accepts it; if it is rejected, the client switches it off and relies on "answer with JSON". Replies are extracted (code fences, `<think>` blocks and prose tolerated), validated with pydantic, and on failure retried up to 2 times with the validation error fed back. JSON failures are logged per call (`llm_usage.json_failures`) for E5. Schemas enforce the disclaimer sentence and exactly 3 reasons for / against.
+
+### D-057 · Rate limiting and resumable batches
+- **Decision:** one sliding-window limiter per process (default 35 requests/min, configurable), exponential backoff with jitter on 429/5xx/timeouts (honours `Retry-After`, up to 6 retries), up to 4 parallel requests in batch runs. Batches are resumable because every call goes through the SQLite cache keyed by (provider, model, prompt version, input hash). Usage is logged as tokens and latency; `cost_usd` = 0 on the free tier (the field is kept for paid providers).
+
+### D-058 · Auditor
+- **Decision:** (1) a deterministic numeric check: every number in every report must match a number in the input JSON (values, numbers inside strings, digits in key names) within 2% relative or 0.051 absolute. Turkish formats are normalized: decimal comma, thousands dots, "%" before/after (and a sign before "%"), fraction vs percent (0.0497 ≈ %4,97), bp/"baz puan" vs percentage points. Names such as XU100/BIST30 are not numbers, and small structural integers (0–13, 21, 26, 52, 63, 95, 99, 100) are always allowed. (2) An LLM consistency check (decision vs risk level, contradictions between reports, deciding the risk level, presenting advice). On a numeric failure the offending report is regenerated once with the numbers fed back; on a consistency failure the decision is regenerated once with the issues fed back. Both events are recorded.
+- **Inputs** give ratios in percent with 2 decimals (`*_yuzde`), so the model can quote them without rescaling.
+
+### D-059 · Orchestrator modes and ablations
+- **Decision:** `run_analysis(ticker, as_of, scenarios, mode, ablation)` with mode ∈ {full, lean, anonymized} and ablation ∈ {P, P+R, P+R+S}. Full = Risk Analisti (if R), Senaryo Analisti (if S), Bull, Bear, Judge, then the auditor. Lean = one structured decision call on the precomputed JSON, with the free numeric audit only. Every run is persisted (`analysis_runs` plus `results/analysis_runs/<date>/…json`) with prompt versions, inputs, outputs, audit, tokens and latency.
+
+### D-060 · Anonymized mode
+- **Decision:** ticker → "Hisse A"; universe → "Grup A" (BIST30) / "Grup B" (Energy); no company name or sub-sector; the analysis date is replaced by "t"; BIST30/Enerji mentions inside input strings are replaced too. Tested: no ticker, name, sector or year appears in the input.
+
+### D-061 · Reasoning off for lean calls
+- **Decision:** lean (E4) calls send `chat_template_kwargs: {enable_thinking: false}` (documented on the model card). Full-mode narratives keep reasoning on.
+- **Evidence:** on 3 stocks (THYAO, ENJSA, AKBNK), reasoning off gave **the same decision** in 3/3 cases (confidence within ±0.05), with 0 numbers outside the input, ~2 s and ~100 output tokens per call, vs 18–38 s and 1,150–2,900 tokens with reasoning on.
+
+### D-062 · Training cutoff of the configured model
+- **Decision:** `llm.training_cutoff = 2026-05-31` and `post_cutoff_start = 2026-06-01`, from the Nemotron 3 Ultra model card: *"The post-training data has a cutoff date of May 2026. The pre-training data has a cutoff date of September 2025."* The later date is used, conservatively. Hosts `build.nvidia.com` and `huggingface.co` were added to the environment to read the card. The E4 post-cutoff window is now 2026-06-01 → today; anonymized mode remains the main control.

@@ -238,14 +238,15 @@ rows = []
 for mres in rep["models"]:
     row = {
         "Model": mres["name"],
-        "Puan": mres["score"],
+        "Puan (hold-out)": mres["score"],
+        "Puan (örneklem içi)": mres["score_insample"],
         "VaR %99 (1g)": mres["var99_1d"],
         "CVaR %99 (1g)": mres["cvar99_1d"],
     }
     for k in ("ks_1d", "wasserstein_1d", "q01_1d", "ks_10d", "wasserstein_10d", "kurt_10d"):
         row[k] = mres["critic"].get(k)
     rows.append(row)
-ct = pd.DataFrame(rows).sort_values("Puan", na_position="last")
+ct = pd.DataFrame(rows).sort_values("Puan (hold-out)", na_position="last")
 
 
 def _hl(r):
@@ -255,8 +256,9 @@ def _hl(r):
 
 st.dataframe(
     ct.style.apply(_hl, axis=1).format(
-        {"Puan": "{:.2f}", "VaR %99 (1g)": "{:.2%}", "CVaR %99 (1g)": "{:.2%}"}
-        | {k: "{:.3f}" for k in ct.columns[4:]},
+        {"Puan (hold-out)": "{:.2f}", "Puan (örneklem içi)": "{:.2f}"}
+        | {"VaR %99 (1g)": "{:.2%}", "CVaR %99 (1g)": "{:.2%}"}
+        | {k: "{:.3f}" for k in ct.columns[5:]},
         na_rep="—",
     ),
     hide_index=True,
@@ -266,6 +268,7 @@ c1, c2 = st.columns(2)
 c1.write(
     f"**{t('risk_sensitivity')}:** "
     + ", ".join(f"{k}: {v}" for k, v in rep["selection_by_scheme"].items())
+    + f" · **{t('risk_insample_choice')}:** {rep.get('selected_model_insample') or '—'}"
 )
 failed = [f"{x['name']}: {x['failure_reason']}" for x in rep["models"] if not x["fitted"]]
 if failed:
@@ -285,5 +288,25 @@ else:
 
 with st.expander("RiskReport (JSON)"):
     st.code(json.dumps(rep, ensure_ascii=False, indent=1)[:20000], language="json")
+
+# ----------------------------------------------------------------------------- Agent 1
+if st.button(t("ag_button_risk")):
+    from pusula.app.components.agent_ui import audit_badge
+    from pusula.app.components.agent_ui import risk_report as _render
+    from pusula.pipeline import run_agent_report
+
+    with st.spinner(t("ag_running")):
+        try:
+            rep_llm, usage, aud = run_agent_report(
+                symbol.removesuffix(".IS"), as_of, "risk_analyst"
+            )
+            audit_badge(aud.model_dump())
+            _render(rep_llm.model_dump())
+            st.caption(
+                f"{usage.model} · {usage.latency_s:.0f} sn · "
+                f"{usage.input_tokens}+{usage.output_tokens} token"
+            )
+        except Exception as exc:
+            st.error(f"{t('ag_error')}: {exc}")
 
 disclaimer_footer()

@@ -37,3 +37,9 @@ The scenario engine assumes normally distributed, independent weekly factor chan
 
 ### L-12 · In-sample critic
 The risk-model critic selects Historical Simulation in most cases because it is in-sample (D-034); out-of-sample validation follows in E1.
+
+### L-13 · LLM language support and determinism
+Turkish is not in Nemotron 3 Ultra's list of officially supported languages; output quality was judged on examples. Reasoning models are not deterministic even at low temperature, so reproducibility relies on the response cache, and run-to-run variation is measured in E5.
+
+### L-14 · Weak policy-rate pass-through to the 2Y yield
+On PPK days the 2Y yield moves much less than the policy rate (current regime β ≈ 0.19 with a wide band), so policy-rate scenarios have small, uncertain effects (D-052).

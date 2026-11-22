@@ -64,6 +64,10 @@ CREATE TABLE IF NOT EXISTS llm_usage (
     cache_read_tokens BIGINT, cost_usd DOUBLE, latency_s DOUBLE, cached BOOLEAN,
     created_at TIMESTAMP
 );
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS provider VARCHAR;
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS attempts INTEGER;
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS json_failures INTEGER;
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS error VARCHAR;
 CREATE TABLE IF NOT EXISTS risk_reports (
     as_of DATE NOT NULL, ticker VARCHAR NOT NULL, basis VARCHAR NOT NULL,
     universe VARCHAR, sub_sector VARCHAR, in_bist30 BOOLEAN,
@@ -211,6 +215,29 @@ class Store:
             if not df.empty:
                 con.register("incoming", df)
                 con.execute(f"INSERT INTO {table} BY NAME SELECT * FROM incoming")
+
+    def log_llm_calls(self, records) -> None:
+        """Append CallRecords (pusula.llm.base) to ``llm_usage``."""
+        if not records:
+            return
+        rows = pd.DataFrame([{
+            "call_id": r.call_id, "run_id": r.run_id, "agent": r.agent, "model": r.model,
+            "prompt_version": r.prompt_version, "input_tokens": r.input_tokens,
+            "output_tokens": r.output_tokens, "cache_read_tokens": 0, "cost_usd": r.cost_usd,
+            "latency_s": r.latency_s, "cached": r.cached, "created_at": r.created_at,
+            "provider": r.provider, "attempts": r.attempts, "json_failures": r.json_failures,
+            "error": r.error,
+        } for r in records])  # fmt: skip
+        with self.connect() as con:
+            con.register("incoming", rows)
+            con.execute("INSERT OR REPLACE INTO llm_usage BY NAME SELECT * FROM incoming")
+
+    def save_analysis_run(self, run_id: str, ticker: str, as_of, mode: str, payload: str) -> None:
+        with self.connect() as con:
+            con.execute(
+                "INSERT OR REPLACE INTO analysis_runs VALUES (?, ?, ?, ?, ?::JSON, now())",
+                [run_id, ticker, as_of, mode, payload],
+            )
 
     def replace_quality_report(self, df: pd.DataFrame) -> None:
         d = df.copy()

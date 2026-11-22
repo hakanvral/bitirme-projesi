@@ -17,12 +17,34 @@ paths:
   results_dir: results
 
 llm:
-  # Official training-data cutoff of the configured models (Anthropic models overview,
-  # https://platform.claude.com/docs/en/models/overview, checked 2026-11-16):
-  # claude-sonnet-5-5 and claude-haiku-5-5 -> Jun 2026.
-  training_cutoff: "2026-06-30"
+  # Official training-data cutoff of the CONFIGURED model (D-062). nvidia/nemotron-3-ultra-550b-a55b
+  # model card (build.nvidia.com/nvidia/nemotron-3-ultra-550b-a55b/modelcard, checked 2026-11-22):
+  # "The post-training data has a cutoff date of May 2026. The pre-training data has a cutoff
+  # date of September 2025." -> the later (post-training) date is used, conservatively.
+  # (Previously Claude Sonnet/Haiku 5.5: Jun 2026.)
+  training_cutoff: "2026-05-31"
   # Post-cutoff evaluation window starts the day after the cutoff month ends.
-  post_cutoff_start: "2026-07-01"
+  post_cutoff_start: "2026-06-01"
+  # Provider settings (D-054). Secrets (NVIDIA_API_KEY / LLM_API_KEY) live in .env or the cloud
+  # network-secret store, never here. Any OpenAI-compatible endpoint works (NIM, Ollama, ...).
+  provider: openai_compatible          # openai_compatible | anthropic | mock
+  base_url: "https://integrate.api.nvidia.com/v1"
+  model: "nvidia/nemotron-3-ultra-550b-a55b"        # analysts + decision (D-055)
+  model_light: "nvidia/nemotron-3-ultra-550b-a55b"  # auditor consistency check (D-055)
+  api_key_env: NVIDIA_API_KEY
+  rpm: 35                    # client-side rate limit (free tier ~40 requests/min)
+  max_concurrency: 4         # parallel requests in batch runs (still capped by rpm)
+  timeout_s: 180
+  max_tokens: 4096
+  temperature: 0.2
+  json_mode: auto            # use response_format=json_object when the endpoint accepts it
+  max_json_retries: 2
+  max_backoff_retries: 6
+  cache_path: data/llm_cache.sqlite
+  extra_body: {}             # merged into every request
+  # Lean (E4) calls: Nemotron 3 Ultra's reasoning switch off -> ~2 s instead of ~20-40 s per call,
+  # same decisions in the comparison (D-061). Full-mode narratives keep reasoning on.
+  extra_body_lean: {chat_template_kwargs: {enable_thinking: false}}
 
 data_quality:
   # |daily simple return| above these thresholds is flagged for manual review (D-026).
@@ -37,7 +59,8 @@ risk:
   max_gap_sessions: 5          # returns spanning a longer gap are dropped (D-032)
   n_paths: 10000               # forward Monte Carlo paths
   horizon_days: 63             # forward horizon (3 months) for fan chart / drawdown
-  critic_paths: 200            # critic: paths of window length simulated per model (D-034)
+  critic_paths: 200            # critic: paths simulated per model (D-034)
+  critic_holdout_share: 0.2    # hold-out critic: fit on first 80%, score on last 20% (D-050)
   merton_threshold: 3.0        # jump = |r - median| > k * robust sigma (D-004)
   merton_min_jumps: 3          # fewer jumps -> Merton falls back to GBM
   evt: {min_history: 750, threshold_quantile: 0.95, run_length: 5, min_clusters: 20}  # D-036

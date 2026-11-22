@@ -70,9 +70,13 @@ TR: dict[str, str] = {
     "risk_dd_1m": "1 ay",
     "risk_dd_3m": "3 ay",
     "risk_critic_header": "Model seçimi (eleştirmen) puanları",
+    "risk_insample_choice": "Örneklem içi eleştirmenin seçimi",
     "risk_critic_help": (
+        "Varsayılan (hold-out): her model pencerenin ilk %80'inde kalibre edilir, simülasyonu son "
+        "%20'lik gerçekleşen dönemle karşılaştırılır; "
+        "seçilen model tüm pencereyle yeniden kurulur. "
         "Her kriter modeller arasında sıralanır (1 = en iyi); puan = eşit ağırlıklı ortalama sıra "
-        "(düşük = iyi). Karşılaştırma kalibrasyon penceresi içindedir; "
+        "(düşük = iyi). Örneklem içi puan yalnızca karşılaştırma içindir: orada "
         "Tarihsel Simülasyon 1 günlük "
         "kriterlerde bu nedenle avantajlıdır. Örneklem dışı test E1'dedir."
     ),
@@ -159,7 +163,34 @@ TR: dict[str, str] = {
         "Şoklanan faktörlerin geçmişte benzer hareket ettiği, çakışmayan dönemler ve o dönemlerde "
         "gerçekleşen getiriler. Modelden bağımsız bir sağlama kontrolüdür."
     ),
-    "sc_real_na": "Reel bazda senaryo yok (TÜFE bir faktör değil); TRY veya USD seçin.",
+    "sc_real_na": "Reel baz için yayımlanmış enflasyon beklentisi verisi yok; TRY veya USD seçin.",
+    "sc_guard": (
+        "Bu şok, seçilen rejimin bu ufuktaki deneyiminin {z:.0f} standart sapma dışında. Rejime "
+        "özgü ilişkileri bu kadar uzağa taşımak anlamsız sonuçlar verir; yayılımlı mod bu "
+        "çalıştırmada tüm örneklem kovaryansını kullandı."
+    ),
+    "sc_guard_iso": (
+        "Bu şok, seçilen rejimin deneyiminin {z:.0f} standart sapma dışında; sonuçları "
+        "temkinle yorumlayın."
+    ),
+    "sc_real_note": (
+        "Reel getiri = nominal getiri − ufuk boyunca beklenen enflasyon (piyasa katılımcılarının "
+        "12 aylık beklentisi: %{pi:.1f}). TÜFE simüle edilmez; bu nedenle şok etkileri TRY ile "
+        "neredeyse aynıdır, yalnızca seviyeler kayar."
+    ),
+    "sc_usd_note": (
+        "USD getiri = TRY getiri − aynı simülasyondaki USD/TRY değişimi. Kur şoku nominal TRY "
+        "fiyatlarını artırırken aynı hissenin dolar değerini düşürebilir."
+    ),
+    "cmp_basis_note_TRY": "Betalar nominal TRY haftalık getirilere göredir.",
+    "cmp_basis_note_USD": (
+        "USD bazında yalnızca USD/TRY betası değişir (TRY betası − 1): dolar bazlı yatırımcı için "
+        "kur artışı ek bir kayıptır. Diğer betalar aynıdır."
+    ),
+    "cmp_basis_note_REAL": (
+        "Reel bazda betalar TRY ile aynıdır (enflasyon beklentisi sabit bir düzeltmedir); "
+        "duyarlılık grafiği reel getirilerle hesaplanır."
+    ),
     # --- comparison page
     "cmp_title": "BIST30 vs Enerji",
     "cmp_heatmap": "Faktör betaları ısı haritası (Model A)",
@@ -176,6 +207,68 @@ TR: dict[str, str] = {
     "cmp_rolling": "Kayan 2 yıllık beta",
     "cmp_regime": "Rejimlere göre beta",
     "cmp_ridge": "Ridge (sağlamlık kontrolü) ve OLS betaları",
+    # --- agents (P4)
+    "nav_agent": "Ajan Kararı",
+    "nav_settings": "Ayarlar",
+    "ag_title": "Ajan Kararı",
+    "ag_intro": (
+        "Seçilen hisse için deterministik risk ve senaryo sonuçları hesaplanır; ardından Risk "
+        "Analisti, Senaryo Analisti, Lehte/Aleyhte (Bull/Bear) ajanları ve Karar Ajanı çalışır, "
+        "Denetçi her sayıyı girdiyle karşılaştırır. LLM yalnızca butona basınca çağrılır."
+    ),
+    "ag_mode": "Mod",
+    "ag_mode_full": "Tam (tüm ajanlar)",
+    "ag_mode_anonymized": "Anonim (Hisse A, tarih gizli)",
+    "ag_mode_lean": "Yalın (tek karar çağrısı)",
+    "ag_ablation": "Girdi blokları",
+    "ag_ablation_help": "P: fiyat/trend, R: risk raporu, S: makro senaryolar",
+    "ag_run": "Analizi çalıştır",
+    "ag_running": "Ajanlar çalışıyor… (ücretsiz katmanda birkaç dakika sürebilir)",
+    "ag_cost_note": (
+        "Tahmini istek sayısı: {n}. Önbellekteki çağrılar tekrar gönderilmez. "
+        "Ücretsiz katman: dakikada en fazla {rpm} istek."
+    ),
+    "ag_decision": "Karar destek kartı",
+    "ag_confidence": "Güven",
+    "ag_horizon": "Vade",
+    "ag_for": "Lehte gerekçeler",
+    "ag_against": "Aleyhte gerekçeler",
+    "ag_risks": "Temel riskler",
+    "ag_conditions": "Kararı değiştirecek koşullar",
+    "ag_risk_report": "Risk Analisti raporu",
+    "ag_scenario_report": "Senaryo Analisti raporu",
+    "ag_debate": "Lehte / aleyhte tartışma",
+    "ag_bull": "Lehte (Bull)",
+    "ag_bear": "Aleyhte (Bear)",
+    "ag_audit_ok": "Denetim geçti",
+    "ag_audit_fail": "Denetim uyarısı",
+    "ag_audit_numbers": "{n} sayı kontrol edildi; girdide bulunmayan: {bad}",
+    "ag_regenerated": "Yeniden üretilen raporlar",
+    "ag_usage": "Bu çalıştırmanın kullanımı",
+    "ag_history": "Çalıştırma geçmişi",
+    "ag_inputs": "Ajanlara verilen girdi (JSON)",
+    "ag_limits": "Veri kısıtları",
+    "ag_summary": "Özet",
+    "ag_level_expl": "Risk düzeyi açıklaması",
+    "ag_drivers": "Ana risk kaynakları",
+    "ag_meaning": "Metrikler ne anlama geliyor?",
+    "ag_hurt": "Zarar veren senaryolar",
+    "ag_help": "Fayda sağlayan senaryolar",
+    "ag_sensitive": "En hassas faktör",
+    "ag_contrast": "BIST30 – Enerji karşılaştırması",
+    "ag_button_risk": "Risk Analisti raporunu üret (LLM)",
+    "ag_button_scenario": "Senaryo Analisti raporunu üret (LLM)",
+    "ag_error": "LLM çağrısı başarısız oldu",
+    # --- settings
+    "set_title": "Ayarlar",
+    "set_provider": "LLM sağlayıcısı",
+    "set_keys": "Anahtar durumu (anahtarlar hiçbir zaman gösterilmez)",
+    "set_key_set": "tanımlı",
+    "set_key_missing": "yok (bulut ortamında ağ sırrı olarak eklenmiş olabilir)",
+    "set_usage": "Toplam LLM kullanımı",
+    "set_usage_by": "Model ve ajan bazında",
+    "set_cost_note": "Ücretsiz katman: maliyet 0 olarak kaydedilir; token ve süre izlenir.",
+    "set_cache": "Yanıt önbelleği: {n} kayıt",
     # --- home
     "home_intro": (
         'PUSULA; bir hissenin **risk profilini** gösterir, **"ya şöyle olursa?"** makro '

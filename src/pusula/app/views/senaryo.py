@@ -49,9 +49,13 @@ cov = c3.radio(t("sc_cov"), ["current", "full"], format_func=lambda c: t(f"sc_co
 basis = c4.radio(t("sc_basis"), ["TRY", "USD", "REAL"], format_func=lambda k: t(f"basis_{k}"))
 missing_input_warnings(ctx.fp.missing)
 if basis == "REAL":
-    st.info(t("sc_real_na"))
-    disclaimer_footer()
-    st.stop()
+    if ctx.infl_exp_annual is None:
+        st.info(t("sc_real_na"))
+        disclaimer_footer()
+        st.stop()
+    st.caption(t("sc_real_note").format(pi=ctx.infl_exp_annual))
+if basis == "USD":
+    st.caption(t("sc_usd_note"))
 
 presets = load_presets()
 kind = st.radio("", [t("sc_preset"), t("sc_custom")], horizontal=True, label_visibility="collapsed")
@@ -100,6 +104,11 @@ if res is None:
     st.stop()
 
 stocks = res["stocks"]
+_zmax = max((abs(v) for v in res.get("shock_z_regime", {}).values()), default=0.0)
+if res.get("extrapolation_guard"):
+    st.warning(t("sc_guard").format(z=_zmax))
+elif _zmax > 4:
+    st.warning(t("sc_guard_iso").format(z=_zmax))
 st.caption(
     f"as_of {as_of} · {res['horizon_weeks']} hafta · kovaryans: {res['cov_source']} · "
     f"{len(stocks['symbol'].unique())} hisse · 10.000 simülasyon"
@@ -239,5 +248,25 @@ else:
         "XU100": "{:+.2%}",
     }
     st.dataframe(w.style.format(fmtw, na_rep="—"), hide_index=True, use_container_width=True)
+
+# ----------------------------------------------------------------------------- Agent 2
+st.subheader(t("ag_scenario_report"))
+pick = st.selectbox(t("stock"), sorted(stocks["ticker"].unique()), key="ag_stock")
+if st.button(t("ag_button_scenario")):
+    from pusula.app.components.agent_ui import audit_badge
+    from pusula.app.components.agent_ui import scenario_report as _render
+    from pusula.pipeline import run_agent_report
+
+    with st.spinner(t("ag_running")):
+        try:
+            rep_llm, usage, aud = run_agent_report(pick, as_of, "scenario_analyst")
+            audit_badge(aud.model_dump())
+            _render(rep_llm.model_dump())
+            st.caption(
+                f"{usage.model} · {usage.latency_s:.0f} sn · "
+                f"{usage.input_tokens}+{usage.output_tokens} token"
+            )
+        except Exception as exc:
+            st.error(f"{t('ag_error')}: {exc}")
 
 disclaimer_footer()

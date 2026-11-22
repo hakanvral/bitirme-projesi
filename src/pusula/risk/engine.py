@@ -98,11 +98,32 @@ def compute_risk_report(
     if len(window) < cfg.calibration_window:
         warnings.append(f"short_history:{len(window)}")
 
+    # hold-out split (D-050): fit on the first part, score against the realised last part
+    n_hold = max(20, round(len(r) * cfg.critic_holdout_share))
+    r_fit, r_hold = r[:-n_hold], r[-n_hold:]
+    hold_models = default_models(cfg.merton_threshold, cfg.merton_min_jumps)
+
     results: list[ModelResult] = []
     critic_sims: dict[str, np.ndarray] = {}
+    hold_sims: dict[str, np.ndarray] = {}
+    hold_fail: dict[str, str] = {}
     forward: dict[str, np.ndarray] = {}
     for i, model in enumerate(default_models(cfg.merton_threshold, cfg.merton_min_jumps)):
         ts = time.perf_counter()
+        try:
+            hm = hold_models[i]
+            hm.fit(r_fit)
+            hs = hm.simulate(
+                cfg.critic_paths,
+                n_hold,
+                rng_for(seed, symbol, inp.as_of, i, "holdout"),
+                start="current",
+            )
+            if not np.all(np.isfinite(hs)):
+                raise ModelFitError("hold-out simulation produced non-finite values")
+            hold_sims[model.name] = hs
+        except ModelFitError as exc:
+            hold_fail[model.name] = str(exc)
         try:
             model.fit(r)
             critic_sims[model.name] = model.simulate(
@@ -130,6 +151,7 @@ def compute_risk_report(
             )
         except ModelFitError as exc:
             critic_sims.pop(model.name, None)
+            hold_sims.pop(model.name, None)
             results.append(
                 ModelResult(
                     name=model.name,
@@ -141,12 +163,27 @@ def compute_risk_report(
     if not forward:
         raise ModelFitError(f"{symbol}: no model could be calibrated")
 
-    table = critic_mod.critic_table(r, critic_sims)
-    selected, by_scheme, eq_scores = critic_mod.select(table)
+    # in-sample critic (reported variant, D-034)
+    table_in = critic_mod.critic_table(r, critic_sims)
+    sel_in, by_scheme_in, eq_in = critic_mod.select(table_in)
+    # hold-out critic (default, D-050); the chosen model is used with its full-window fit
+    hold_sims = {k: v for k, v in hold_sims.items() if k in forward}
+    method = "holdout"
+    if hold_sims:
+        table_h = critic_mod.critic_table(r_hold, hold_sims)
+        selected, by_scheme, eq_h = critic_mod.select(table_h)
+    else:
+        warnings.append("holdout_critic_failed:in_sample_used")
+        table_h, eq_h = None, None
+        selected, by_scheme, method = sel_in, by_scheme_in, "in_sample"
     for res in results:
+        res.holdout_failure = hold_fail.get(res.name)
         if res.fitted:
-            res.critic = {k: float(v) for k, v in table.loc[res.name].items()}
-            res.score = float(eq_scores[res.name])
+            res.critic_insample = {k: float(v) for k, v in table_in.loc[res.name].items()}
+            res.score_insample = float(eq_in[res.name])
+            if table_h is not None and res.name in table_h.index:
+                res.critic = {k: float(v) for k, v in table_h.loc[res.name].items()}
+                res.score = float(eq_h[res.name])
 
     paths = forward[selected]
     dd1, dd3 = m.max_drawdowns(paths[:, :21]), m.max_drawdowns(paths)
@@ -175,8 +212,12 @@ def compute_risk_report(
         n_history=len(full),
         seed=seed,
         models=results,
+        critic_method=method,
+        n_holdout=n_hold,
         selected_model=selected,
         selection_by_scheme=by_scheme,
+        selected_model_insample=sel_in,
+        selection_by_scheme_insample=by_scheme_in,
         selection_stable=len({by_scheme[k] for k in ("equal", "tail_heavy", "moment_heavy")}) == 1,
         horizon_1d=_var_block(paths[:, 0]),
         horizon_10d=_var_block(cumulative(paths, 10)),
