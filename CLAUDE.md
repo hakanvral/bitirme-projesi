@@ -454,6 +454,7 @@ uv run python -m pusula.universe.bist_index       # BIST30 lists from Borsa Ista
 uv run python -m pusula.data.prefill ppk          # pre-fill ppk_decisions.csv from TCMB
 uv run python -m pusula.data.jump_review --write  # classify price jumps, propose corrections
 uv run python -m pusula.risk.run_universe --as-of YYYY-MM-DD  # risk reports + relative risk levels
+uv run python -m pusula.macro.run --as-of YYYY-MM-DD  # factor models, pass-through, preset scenarios
 uv run streamlit run src/pusula/app/Home.py      # dashboard
 uv run pytest                                    # tests
 uv run ruff check . && uv run ruff format .      # lint/format
@@ -484,3 +485,8 @@ Follow-ups (same day, D-018 … D-030):
 - Stock jump threshold ±10.5%; corporate actions in `config/corporate_actions.yaml` → `prices_clean`.
 - EPİAŞ live API needs local `.env` credentials (form-body login); cloud uses `ptf.csv`.
 - **P4 note:** Sonnet 5.5 cannot disable thinking, so temperature=0 is not deterministic. Rely on the response cache for reproducibility and measure run-to-run variation in E5.
+
+Phase 2–3 (2026-11-22, D-031 … D-048):
+- Risk engine reads `prices_clean`; <250 returns → no report; EVT on full history (≥750, ≥20 clusters); relative risk level ("evren içi göreli"); critic equal-weight ranks plus sensitivity schemes; model failures skipped and recorded.
+- Inputs committed: `ppk_decisions.csv`, `corporate_actions.yaml`, `universe.yaml`; never investing.com-derived files.
+- Factor model: weekly, TLREF as rate factor until the 2Y yield is provided; first 4 weeks after listing dropped; scenarios use Model A, the current-regime covariance, common random numbers, and mean + median universe summaries.

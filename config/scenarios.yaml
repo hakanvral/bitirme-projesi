@@ -1,0 +1,16 @@
+# Preset scenarios (CLAUDE.md §6.3). Shocks are cumulative over the chosen horizon.
+# Keys: policy_rate_bp (TCMB policy rate; converted to the market rate via regime-specific
+# pass-through), market_rate_bp (rate factor directly), usdtry_pct, brent_pct, ttf_pct,
+# ptf_pct, cds_bp, vix_pts, us10y_bp.
+
+scenarios:
+  - {id: faiz_indirimi,       name_tr: "Faiz indirimi (−300 bp)",        shocks: {policy_rate_bp: -300}}
+  - {id: sert_faiz_indirimi,  name_tr: "Sert faiz indirimi (−750 bp)",   shocks: {policy_rate_bp: -750}}
+  - {id: faiz_artirimi,       name_tr: "Faiz artırımı (+500 bp)",        shocks: {policy_rate_bp: 500}}
+  - {id: kur_soku,            name_tr: "Kur şoku (USD/TRY +%15)",        shocks: {usdtry_pct: 15}}
+  - {id: petrol_soku,         name_tr: "Petrol şoku (Brent +%30)",       shocks: {brent_pct: 30}}
+  - {id: petrol_cokusu,       name_tr: "Petrol çöküşü (Brent −%30)",     shocks: {brent_pct: -30}}
+  - {id: dogalgaz_soku,       name_tr: "Doğalgaz şoku (TTF +%50)",       shocks: {ttf_pct: 50}}
+  - {id: ulke_riski,          name_tr: "Ülke riski artışı (CDS +200 bp)", shocks: {cds_bp: 200}}
+  - {id: kuresel_risk_off,    name_tr: "Küresel risk-off (VIX +15, US10Y +50 bp)", shocks: {vix_pts: 15, us10y_bp: 50}}
+  - {id: stagflasyon,         name_tr: "Stagflasyon (kur +%10, faiz +300 bp, Brent +%20)", shocks: {usdtry_pct: 10, policy_rate_bp: 300, brent_pct: 20}}

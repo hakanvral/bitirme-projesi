@@ -187,3 +187,41 @@ section. IDs are stable; superseded decisions are marked, never deleted.
 
 ### D-039 · Price jumps under "review" are treated as real moves
 - **Decision (user):** the 58 `review` jumps (10.5–20.5%) stay uncorrected. BIST's daily price band was likely wider (about ±20%) for many stocks before 2021 (consistent with the data; **unverified**). The 4 proposed corrections stay `proposed` until the user confirms them on KAP. The risk engine reads `prices_clean`, so confirming them later only requires `python -m pusula.data.update --only prices` and a rerun of `python -m pusula.risk.run_universe`.
+
+---
+
+## Phase 3 · Macro factor model & scenarios (2026-11-22)
+
+### D-040 · Weekly factor panel
+- **Decision:** Friday-close weekly data from the aligned panel (XIST calendar, fill rules D-015), as of `as_of`. Factors: rate (pp change), USD/TRY, Brent, TTF (log changes), CDS (bp), VIX (points), US10Y (pp), PTF (log; electricity names only). A factor needs ≥104 weeks of data; a stock needs ≥104 complete weeks. Sample: 2018 → as_of (463 weeks at 2026-11-20).
+
+### D-041 · Rate factor without the 2Y yield
+- **Decision (user):** as long as `tr_2y_yield.csv` is missing, the rate factor is **TLREF**, spliced with the interbank O/N rate before 2018-12-28 (D-019). If the 2Y file is added, `python -m pusula.data.update` plus a rerun switches automatically to the 2Y yield (`tr_2y` takes precedence).
+- **Caveat:** an overnight rate follows the policy rate almost one-to-one, so the rate factor mostly measures policy moves, not changes in market expectations.
+
+### D-042 · Policy-rate pass-through
+- **Decision:** for each PPK meeting from 2018-06-01 to as_of, Δmarket = rate on the 5th session after the meeting − rate on the last session before it (window [−1, +5], as in E3); Δpolicy = new − previous rate. Per regime: least squares through the origin with a 90% band (t distribution). A regime with fewer than 3 rate changes uses the pooled estimate (flagged). Meetings with no change are kept.
+- **Result (TLREF, as of 2026-11-20):** 2019–20 easing 0.81 [0.59, 1.03]; 2020–21 tightening 0.36 [0.00, 0.73] (only 3 changes); 2021–23 unorthodox 0.83 [0.59, 1.08]; 2023–24 normalization 1.01 [0.81, 1.22]; **current 2024–26 easing 0.97 [0.74, 1.21]**; 2018 uses the pooled 0.90 [0.80, 0.99].
+- **UI:** the rate shock can be entered as a policy-rate change (converted with the current regime's pass-through; the band is propagated as low/high scenario runs and shown as error bars) or directly as a market-rate change.
+
+### D-043 · Macro distribution for scenarios
+- **Decision:** the cumulative h-week factor change ~ Normal(h·μ, h·Σ), with μ and Σ estimated from weekly changes in the **current regime** by default (selectable: full sample). Weekly changes are treated as independent. Horizons: 1 month = 4 weeks, 3 months = 13 weeks.
+
+### D-044 · Isolated vs propagated
+- **Decision:** propagated (default) draws the non-shocked factors from N(μ₂ + Σ₂₁Σ₁₁⁻¹(x₁ − μ₁), Σ₂₂ − Σ₂₁Σ₁₁⁻¹Σ₁₂). In isolated mode the non-shocked factors are **still random**, drawn from their unconditional distribution (mean = expected change).
+- **Reason:** fixing them at their mean would remove macro noise from the scenario but not from the baseline, so ΔVaR would mix "shock" and "less noise". With both random, the comparison is fair.
+- **Finding:** in the current data the weekly factor correlations are small (|ρ| ≤ 0.3; rate vs USD/TRY ≈ 0), so propagated and isolated results are close. Propagation will matter more once CDS and the 2Y yield are added.
+
+### D-045 · Stock simulation and comparison
+- **Decision:** Model A is used for scenarios. R = h·α + X·β + the sum of h weekly residuals bootstrapped from the stock's own history. The same macro draws and the same residual indices are used for every stock and for baseline and scenario alike (common random numbers), so differences come from the shock, not from simulation noise. Outputs: Δ expected simple return, ΔVaR/CVaR 95/99, ΔP(loss), ΔP(loss > 10%), rank change within each universe, and universe means **and medians** (with and without overlap names). USD view = TRY return − simulated USD/TRY change; there is no real view (CPI is not a factor). 10,000 paths.
+- **Why Model A:** Model B's macro betas are identical to Model A's (the market residual is orthogonal to the factors), and its extra factor is not a macro shock.
+
+### D-046 · Missing optional inputs
+- **Decision (user):** without `cds_tr_5y.csv`, `ptf.csv` or the 2Y/10Y yields, the model runs without those factors, the pages show a clear warning, and shocks to missing factors are ignored and listed. Adding a file later only needs `python -m pusula.data.update` and a rerun (covered by a test).
+
+### D-047 · Newly listed stocks
+- **Decision:** the first 4 weekly returns after a stock's first price are dropped in the factor model (listing-period price discovery is not a macro response). Universe summaries report the median next to the mean.
+- **Reason (found in the data):** ENERY's first trading week (+38%, 2023-09-01) and one joint shock week (2025-03-21: USD/TRY +3.7%, ENERY −18%) gave it a USD/TRY beta of −4.9. That single name drove the Energy average in the FX-shock scenario (ENERY −40% vs the other nine ≈ +1%). After the change: Energy mean −1.9%, median −1.1% (3 months, propagated).
+
+### D-048 · Ridge and VIF
+- **Decision:** ridge regression on standardized factors, with the penalty chosen by generalized cross-validation, as a robustness column only. VIF is reported per stock and for the factor set. **Result:** maximum VIF 1.57, i.e. no multicollinearity problem with the current factor set (CDS, which tends to move with USD/TRY and rates, is not yet included).

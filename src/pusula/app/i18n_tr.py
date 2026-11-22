@@ -83,6 +83,94 @@ TR: dict[str, str] = {
     "risk_evt_xi": "Kuyruk indeksi ξ",
     "risk_window": "Kalibrasyon penceresi",
     "risk_timing": "Hesaplama süresi",
+    # --- factors
+    "factor_rate": "Faiz",
+    "factor_usdtry": "USD/TRY",
+    "factor_brent": "Brent",
+    "factor_ttf": "TTF doğalgaz",
+    "factor_cds": "CDS (5Y)",
+    "factor_vix": "VIX",
+    "factor_us10y": "ABD 10Y",
+    "factor_ptf": "PTF (elektrik)",
+    "factor_market_resid": "Piyasa artığı",
+    "subsector_electricity": "Elektrik",
+    "subsector_natural_gas": "Doğalgaz",
+    "subsector_refining_petroleum": "Rafineri / akaryakıt",
+    # --- missing inputs
+    "missing_header": "Eksik veri uyarısı",
+    "missing_cds": "CDS verisi yok (cds_tr_5y.csv): ülke riski faktörü ve CDS şokları devre dışı.",
+    "missing_ptf": "PTF verisi yok (ptf.csv veya EPİAŞ): elektrik fiyatı faktörü devre dışı.",
+    "missing_tr_2y": "2 yıllık tahvil faizi yok: faiz faktörü olarak TLREF kullanılıyor.",
+    "missing_fix": (
+        "Dosyayı data/manual/ klasörüne koyup `uv run python -m pusula.data.update` çalıştırın; "
+        "sayfa yeniden hesaplanır."
+    ),
+    # --- scenario page
+    "sc_title": "Senaryo Laboratuvarı",
+    "sc_preset": "Hazır senaryo",
+    "sc_custom": "Özel senaryo",
+    "sc_horizon": "Vade",
+    "sc_h_1m": "1 ay",
+    "sc_h_3m": "3 ay",
+    "sc_mode": "Senaryo modu",
+    "sc_mode_propagated": "Yayılımlı (diğer faktörler koşullu hareket eder)",
+    "sc_mode_isolated": "Yalıtılmış (yalnızca şoklanan faktörler)",
+    "sc_cov": "Makro kovaryans dönemi",
+    "sc_cov_current": "Güncel rejim",
+    "sc_cov_full": "Tüm örneklem",
+    "sc_basis": "Getiri bazı",
+    "sc_rate_mode": "Faiz şoku girişi",
+    "sc_rate_policy": "Politika faizi (bp)",
+    "sc_rate_market": "Piyasa faizi (bp)",
+    "sc_usdtry": "USD/TRY (%)",
+    "sc_brent": "Brent (%)",
+    "sc_ttf": "TTF (%)",
+    "sc_cds": "CDS (bp)",
+    "sc_vix": "VIX (puan)",
+    "sc_us10y": "ABD 10Y (bp)",
+    "sc_passthrough": "Politika faizinden piyasa faizine geçiş",
+    "sc_passthrough_text": (
+        "Politika faizi {bp:+.0f} bp → {src} değişimi ≈ {mid:+.2f} puan "
+        "(%90 bant: {lo:+.2f} … {hi:+.2f}); rejim: {regime}, β = {beta:.2f}"
+    ),
+    "sc_ignored": "Verisi olmayan faktör şokları yok sayıldı",
+    "sc_no_shock": "Şok tanımlanmadı.",
+    "sc_summary": "Evren özeti (taban senaryoya göre değişim)",
+    "sc_all": "Tüm hisseler",
+    "sc_no_overlap": "Çakışan hisseler hariç",
+    "sc_d_exp": "Δ beklenen getiri",
+    "sc_d_var": "Δ VaR %99",
+    "sc_d_cvar": "Δ CVaR %99",
+    "sc_d_ploss": "Δ zarar olasılığı",
+    "sc_rank": "Sıra değişimi",
+    "sc_median": "Δ beklenen getiri (medyan)",
+    "sc_band": "Geçiş bandı (düşük / yüksek)",
+    "sc_by_stock": "Hisse bazında etki: BIST30 ve Enerji",
+    "sc_implied": "Faktörlerin beklenen değişimi (ufuk toplamı)",
+    "sc_implied_base": "Taban",
+    "sc_implied_scen": "Senaryo",
+    "sc_analogues": "Tarihsel benzer dönemler",
+    "sc_analogues_help": (
+        "Şoklanan faktörlerin geçmişte benzer hareket ettiği, çakışmayan dönemler ve o dönemlerde "
+        "gerçekleşen getiriler. Modelden bağımsız bir sağlama kontrolüdür."
+    ),
+    "sc_real_na": "Reel bazda senaryo yok (TÜFE bir faktör değil); TRY veya USD seçin.",
+    # --- comparison page
+    "cmp_title": "BIST30 vs Enerji",
+    "cmp_heatmap": "Faktör betaları ısı haritası (Model A)",
+    "cmp_std": "Standartlaştırılmış (1 standart sapmalık haftalık faktör hareketine tepki)",
+    "cmp_raw": "Ham beta",
+    "cmp_heat_help": (
+        "Standartlaştırılmış beta = beta × faktörün haftalık standart sapması: farklı birimli "
+        "faktörleri karşılaştırılabilir kılar. * = %5 düzeyinde anlamlı (Newey–West)."
+    ),
+    "cmp_group": "Evren / alt sektör ortalamaları",
+    "cmp_r2": "Açıklama gücü (R²): Model A ve Model B",
+    "cmp_vif": "Çoklu doğrusallık (VIF)",
+    "cmp_sens": "Hazır senaryolara duyarlılık (3 ay, yayılımlı; ortalama Δ beklenen getiri)",
+    "cmp_rolling": "Kayan 2 yıllık beta",
+    "cmp_regime": "Rejimlere göre beta",
+    "cmp_ridge": "Ridge (sağlamlık kontrolü) ve OLS betaları",
     # --- home
     "home_intro": (
         'PUSULA; bir hissenin **risk profilini** gösterir, **"ya şöyle olursa?"** makro '

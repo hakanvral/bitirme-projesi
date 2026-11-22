@@ -25,3 +25,15 @@ The analysis cannot rule out that some 10–20% daily moves before 2021 are data
 
 ### L-08 · Reconstructed BIST30 list
 The 2025-11-03 BIST30 list is reconstructed from period-change announcements and does not capture intra-period changes (D-021).
+
+### L-09 · Weak macro explanatory power
+Weekly macro factors explain little of single-stock returns in nominal TRY (Model A mean R² ≈ 0.06 for both universes; Model B with the market residual ≈ 0.46 for BIST30 and 0.28 for Energy). Most betas are not significant at 5%, except VIX (significant for 82% of stocks). Scenario effects are therefore small relative to normal return dispersion and should be read with their uncertainty.
+
+### L-10 · Rate factor and missing inputs
+Without the 2Y yield, the rate factor is TLREF (an overnight rate), and CDS and PTF are missing at the time of writing (D-041, D-046).
+
+### L-11 · Gaussian, independent weekly macro moves
+The scenario engine assumes normally distributed, independent weekly factor changes within a regime (D-043), so fat tails and momentum in macro variables are not captured.
+
+### L-12 · In-sample critic
+The risk-model critic selects Historical Simulation in most cases because it is in-sample (D-034); out-of-sample validation follows in E1.

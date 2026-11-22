@@ -71,3 +71,10 @@ TUPRS, AYGAZ (refining) · ENERY, AHGAZ (natural gas, relaxed rule) · CANTE, OD
 - Verified by tests (synthetic truth): GBM recovers μ and σ; Merton recovers λ and the jump mean; GARCH-t recovers α, β and ν; VaR/CVaR match lognormal analytics; drawdown on a known path; beta recovery; EVT ξ for Student-t(4) ≈ 0.25; declustering; critic prefers the true model; deterministic risk levels; **no look-ahead** (corrupted future → identical report); short history → no report; failing model skipped and recorded.
 - Timings: 0.4–0.6 s per stock and basis (target ≤ 5 s); a universe run (39 stocks × 3 bases) takes ~56 s.
 - Finding: the in-sample critic picks HS for 212 of 231 reports (D-034).
+
+## P3 · Macro & scenarios: ✅ done (2026-11-22)
+- `macro/factors.py` (weekly panel), `macro/factor_model.py` (Model A/B, Newey–West, VIF, ridge, rolling and regime betas), `macro/passthrough.py`, `macro/scenarios.py` (isolated/propagated, 1m/3m, residual bootstrap, baseline comparison), `macro/analogues.py`, `macro/context.py`, `macro/run.py`; `config/scenarios.yaml`; pages **Senaryo Laboratuvarı** and **BIST30 vs Enerji**.
+- Run: `uv run python -m pusula.macro.run --as-of 2026-11-20` (results in `results/macro/…` and DuckDB `factor_betas`, `scenario_results`).
+- Verified by tests: known betas recovered with HAC; VIF detects collinearity; Model B keeps Model A's macro betas; ridge shrinks; rolling betas; Gaussian conditioning matches the analytic 2-D formula; propagated shift equals the analytic conditional shift; shock conversion, pass-through recovery and regime fallback; analogues find a planted window; listing-week rule; optional factors switch on when data appears; **no look-ahead** for the factor panel and betas.
+- Speed: 39 factor fits in 1.4 s; all 10 presets × 2 horizons × 2 modes for both universes in ~5 s (target < 30 s).
+- Missing inputs at this point: CDS, PTF, 2Y/10Y yields (warnings shown; TLREF used as the rate factor).

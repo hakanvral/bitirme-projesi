@@ -71,6 +71,21 @@ CREATE TABLE IF NOT EXISTS risk_reports (
     selected_model VARCHAR, payload JSON, run_at TIMESTAMP,
     PRIMARY KEY (as_of, ticker, basis)
 );
+CREATE TABLE IF NOT EXISTS factor_betas (
+    as_of DATE NOT NULL, ticker VARCHAR NOT NULL, variant VARCHAR NOT NULL, factor VARCHAR NOT NULL,
+    beta DOUBLE, se DOUBLE, t DOUBLE, p DOUBLE, vif DOUBLE, ridge_beta DOUBLE,
+    r2 DOUBLE, adj_r2 DOUBLE, n BIGINT, run_at TIMESTAMP,
+    PRIMARY KEY (as_of, ticker, variant, factor)
+);
+CREATE TABLE IF NOT EXISTS scenario_results (
+    as_of DATE NOT NULL, scenario VARCHAR NOT NULL, horizon VARCHAR NOT NULL,
+    mode VARCHAR NOT NULL, basis VARCHAR NOT NULL, symbol VARCHAR NOT NULL,
+    universe VARCHAR NOT NULL, sub_sector VARCHAR, overlap BOOLEAN,
+    base_exp_ret DOUBLE, scen_exp_ret DOUBLE, d_exp_ret DOUBLE, d_var99 DOUBLE,
+    d_cvar99 DOUBLE, d_p_loss DOUBLE, rank_change DOUBLE,
+    scen_exp_ret_low DOUBLE, scen_exp_ret_high DOUBLE, run_at TIMESTAMP,
+    PRIMARY KEY (as_of, scenario, horizon, mode, basis, symbol, universe)
+);
 CREATE TABLE IF NOT EXISTS update_log (
     run_at TIMESTAMP, series VARCHAR, source VARCHAR, status VARCHAR,
     rows BIGINT, message VARCHAR

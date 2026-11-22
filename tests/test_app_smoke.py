@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pytest
 from streamlit.testing.v1 import AppTest
 
 from pusula.app.i18n_tr import t
@@ -35,5 +36,12 @@ def test_data_status_page_renders_without_db():
 
 def test_risk_page_renders():
     at = AppTest.from_file(str(PAGES / "hisse_risk.py"), default_timeout=120).run()
+    assert not at.exception
+    assert t("disclaimer") in _all_text(at)
+
+
+@pytest.mark.parametrize("page", ["senaryo.py", "karsilastirma.py"])
+def test_macro_pages_render(page):
+    at = AppTest.from_file(str(PAGES / page), default_timeout=180).run()
     assert not at.exception
     assert t("disclaimer") in _all_text(at)

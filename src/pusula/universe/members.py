@@ -11,7 +11,8 @@ from pusula.universe.load import load_bist30, load_energy_selected, to_yahoo
 
 
 def universe_members(as_of: date) -> pd.DataFrame:
-    """Columns: ticker (plain), symbol (.IS), universe (BIST30 | Energy), sub_sector, in_bist30.
+    """Columns: ticker (plain), symbol (.IS), universe (BIST30 | Energy), sub_sector, in_bist30,
+    overlap (True for names that are in both groups).
 
     BIST30 list: the ``reference`` list for dates on/after REFERENCE_DATE, otherwise the
     ``selection`` list (D-002). Names in both groups appear once per group (overlap flagged).
@@ -28,4 +29,5 @@ def universe_members(as_of: date) -> pd.DataFrame:
                          "in_bist30": e.ticker in b30})  # fmt: skip
     df = pd.DataFrame(rows)
     df["symbol"] = df["ticker"].map(to_yahoo)
+    df["overlap"] = df.duplicated("symbol", keep=False)  # in both BIST30 and Energy
     return df

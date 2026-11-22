@@ -44,6 +44,8 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "PD", "NPY", "RUF"]
 ignore = [
+    "N803",    # math notation: X (factor matrix), R (returns) as argument names
+    "N806",    # ... and as local variables
     "RUF001",  # Turkish characters in strings are intentional
     "RUF002",
     "RUF003",
