@@ -32,8 +32,16 @@ data_quality:
   max_ffill_days_market: 5    # market series are forward-filled at most N business days
 
 risk:
-  calibration_window: 500
-  n_paths: 10000
+  calibration_window: 500      # trading days used to fit the models (D-031)
+  min_history: 250             # fewer valid daily returns at as_of -> no report (D-031)
+  max_gap_sessions: 5          # returns spanning a longer gap are dropped (D-032)
+  n_paths: 10000               # forward Monte Carlo paths
+  horizon_days: 63             # forward horizon (3 months) for fan chart / drawdown
+  critic_paths: 200            # critic: paths of window length simulated per model (D-034)
+  merton_threshold: 3.0        # jump = |r - median| > k * robust sigma (D-004)
+  merton_min_jumps: 3          # fewer jumps -> Merton falls back to GBM
+  evt: {min_history: 750, threshold_quantile: 0.95, run_length: 5, min_clusters: 20}  # D-036
+  risk_level_cutoffs: [25, 50, 75]   # percentile cutoffs, evren içi göreli (D-037)
 
 backtest:
   transaction_cost_bp: 10

@@ -64,6 +64,13 @@ CREATE TABLE IF NOT EXISTS llm_usage (
     cache_read_tokens BIGINT, cost_usd DOUBLE, latency_s DOUBLE, cached BOOLEAN,
     created_at TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS risk_reports (
+    as_of DATE NOT NULL, ticker VARCHAR NOT NULL, basis VARCHAR NOT NULL,
+    universe VARCHAR, sub_sector VARCHAR, in_bist30 BOOLEAN,
+    risk_level VARCHAR, risk_score DOUBLE, vol_ann DOUBLE, cvar99_1d DOUBLE,
+    selected_model VARCHAR, payload JSON, run_at TIMESTAMP,
+    PRIMARY KEY (as_of, ticker, basis)
+);
 CREATE TABLE IF NOT EXISTS update_log (
     run_at TIMESTAMP, series VARCHAR, source VARCHAR, status VARCHAR,
     rows BIGINT, message VARCHAR
@@ -180,6 +187,15 @@ class Store:
                 "INSERT INTO update_log VALUES (?, ?, ?, ?, ?, ?)",
                 [run_at, series, source, status, rows, message[:500]],
             )
+
+    def replace_rows(self, table: str, df: pd.DataFrame, where: str, params: list) -> None:
+        """Delete rows matching ``where`` and insert ``df`` (columns matched by name)."""
+        assert table in {"risk_reports", "factor_betas", "scenario_results"}
+        with self.connect() as con:
+            con.execute(f"DELETE FROM {table} WHERE {where}", params)
+            if not df.empty:
+                con.register("incoming", df)
+                con.execute(f"INSERT INTO {table} BY NAME SELECT * FROM incoming")
 
     def replace_quality_report(self, df: pd.DataFrame) -> None:
         d = df.copy()

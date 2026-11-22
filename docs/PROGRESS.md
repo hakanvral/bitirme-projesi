@@ -64,3 +64,10 @@ TUPRS, AYGAZ (refining) · ENERY, AHGAZ (natural gas, relaxed rule) · CANTE, OD
 6. Decide in P3: 2Y yield (manual CSV) or TLREF as the rate factor.
 7. Optional: official CPI / survey release-date files (otherwise conservative rules); `ptf.csv`, or run the update locally with EPİAŞ credentials in `.env`.
 8. DSTKF (in the 2025-11-03 BIST30 list) has prices only from 2025-02-06, which is relevant for the P2 calibration window.
+
+## P2 · Risk engine: ✅ done (2026-11-22)
+- `features/returns.py` (log returns, gap rule, TRY / real / USD bases); `risk/models/` (HS, FHS, GBM, Merton, GARCH-t); `risk/critic.py`, `risk/metrics.py`, `risk/level.py`, `risk/schemas.py` (`RiskReport`), `risk/engine.py`, `risk/run_universe.py`; **Hisse Risk Analizi** page.
+- Run: `uv run python -m pusula.risk.run_universe --as-of 2026-11-20`, then open the page.
+- Verified by tests (synthetic truth): GBM recovers μ and σ; Merton recovers λ and the jump mean; GARCH-t recovers α, β and ν; VaR/CVaR match lognormal analytics; drawdown on a known path; beta recovery; EVT ξ for Student-t(4) ≈ 0.25; declustering; critic prefers the true model; deterministic risk levels; **no look-ahead** (corrupted future → identical report); short history → no report; failing model skipped and recorded.
+- Timings: 0.4–0.6 s per stock and basis (target ≤ 5 s); a universe run (39 stocks × 3 bases) takes ~56 s.
+- Finding: the in-sample critic picks HS for 212 of 231 reports (D-034).

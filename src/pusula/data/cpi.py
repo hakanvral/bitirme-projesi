@@ -33,10 +33,15 @@ def _anchors(cpi_monthly: pd.DataFrame) -> pd.Series:
     return pd.Series(np.log(m["value"].to_numpy(dtype=float)), index=idx)
 
 
+def _days(idx: pd.DatetimeIndex) -> np.ndarray:
+    return ((idx - pd.Timestamp("1970-01-01")) / pd.Timedelta(days=1)).to_numpy(dtype=float)
+
+
 def _interp_log_level(anchors: pd.Series, dates: pd.DatetimeIndex) -> pd.Series:
-    x = anchors.index.asi8.astype(float)
+    # Days since epoch as floats (unit-safe: pandas 3 may store dates in s/us/ns resolution).
+    x = _days(anchors.index)
     y = anchors.to_numpy()
-    t = dates.asi8.astype(float)
+    t = _days(dates)
     out = np.interp(t, x, y)  # flat outside the range -> fixed below with slopes
     # Extrapolate beyond the last anchor with the last known slope (last monthly inflation),
     # and before the first anchor with the first slope.

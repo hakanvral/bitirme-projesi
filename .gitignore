@@ -29,3 +29,7 @@ results/
 .DS_Store
 .idea/
 .vscode/
+
+# Reviewed public-source inputs ARE committed (D-033). Never commit investing.com-derived files
+# (cds_tr_5y.csv, tr_2y_yield.csv, tr_10y_yield.csv): redistribution is not allowed.
+!data/manual/ppk_decisions.csv

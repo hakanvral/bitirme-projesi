@@ -99,9 +99,24 @@ class DataQualityCfg(BaseModel):
     max_ffill_days_market: int = 5
 
 
+class EvtCfg(BaseModel):
+    min_history: int = 750
+    threshold_quantile: float = 0.95
+    run_length: int = 5
+    min_clusters: int = 20
+
+
 class RiskCfg(BaseModel):
     calibration_window: int = 500
+    min_history: int = 250
+    max_gap_sessions: int = 5
     n_paths: int = 10_000
+    horizon_days: int = 63
+    critic_paths: int = 200
+    merton_threshold: float = 3.0
+    merton_min_jumps: int = 3
+    evt: EvtCfg = EvtCfg()
+    risk_level_cutoffs: list[float] = [25, 50, 75]
 
 
 class BacktestCfg(BaseModel):

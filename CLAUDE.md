@@ -453,6 +453,7 @@ uv run python -m pusula.universe.select_energy    # rule-based energy selection
 uv run python -m pusula.universe.bist_index       # BIST30 lists from Borsa Istanbul (+ reconstruction)
 uv run python -m pusula.data.prefill ppk          # pre-fill ppk_decisions.csv from TCMB
 uv run python -m pusula.data.jump_review --write  # classify price jumps, propose corrections
+uv run python -m pusula.risk.run_universe --as-of YYYY-MM-DD  # risk reports + relative risk levels
 uv run streamlit run src/pusula/app/Home.py      # dashboard
 uv run pytest                                    # tests
 uv run ruff check . && uv run ruff format .      # lint/format

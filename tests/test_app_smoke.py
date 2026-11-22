@@ -31,3 +31,9 @@ def test_data_status_page_renders_without_db():
     at = AppTest.from_file(str(PAGES / "veri_durumu.py"), default_timeout=30).run()
     assert not at.exception
     assert t("disclaimer") in _all_text(at)
+
+
+def test_risk_page_renders():
+    at = AppTest.from_file(str(PAGES / "hisse_risk.py"), default_timeout=120).run()
+    assert not at.exception
+    assert t("disclaimer") in _all_text(at)

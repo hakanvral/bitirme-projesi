@@ -148,3 +148,42 @@ section. IDs are stable; superseded decisions are marked, never deleted.
 
 ### D-030 · Note for P4: LLM determinism (not implemented yet)
 - Claude Sonnet 5.5 cannot disable extended thinking (Anthropic models overview), so `temperature=0` does not guarantee identical outputs. Reproducibility will rely on the on-disk response cache (keyed by model, prompt version and input hash), and run-to-run variation will be measured in E5.
+
+---
+
+## Phase 2 · Risk engine (2026-11-22)
+
+### D-031 · Calibration window and minimum history
+- **Decision:** models are fitted on the last 500 daily returns available at `as_of`. With fewer than 500 returns, all available returns are used (`short_history` warning). With fewer than **250**, no report is produced.
+- **Reason:** 500 days ≈ 2 years covers more than one volatility episode; below ~1 year, GARCH-type estimates are unreliable.
+
+### D-032 · Return construction
+- **Decision:** daily log returns from `prices_clean` (adjusted close) on the official XIST calendar. Stock prices are never filled; a return spanning more than 5 missing sessions is dropped. USD basis = price / USD/TRY (EVDS); real basis = price / point-in-time CPI (`cpi_as_of`, D-003). Beta is always computed in TRY against XU100 (TRY).
+- **Bug found and fixed while building this:** the CPI interpolation compared dates stored at different pandas time resolutions (pandas 3), which made the real basis explode. It now works in "days since 1970" floats.
+
+### D-033 · Which inputs are committed
+- **Decision:** reviewed public-source inputs are committed: `data/manual/ppk_decisions.csv` (TCMB, with source URLs), `config/corporate_actions.yaml`, `config/universe.yaml` (Borsa Istanbul). Files derived from investing.com (`cds_tr_5y.csv`, `tr_2y_yield.csv`, `tr_10y_yield.csv`) are **not** committed, because redistribution is not allowed; `data/manual/README.md` explains how to obtain them.
+
+### D-034 · Critic: what is compared and how models are scored
+- **Decision:** each fitted model simulates 200 paths as long as the calibration window, starting from its long-run state, and is compared with history at 1 day (all daily returns) and 10 days (non-overlapping simulated sums vs overlapping historical sums). There are 8 unit-free criteria per horizon: KS, Wasserstein/σ, |Δmean|/σ, |vol ratio − 1|, |Δskew|, |Δexcess kurtosis|, |Δq01|/σ, |Δq05|/σ. Each criterion is ranked across models; the score is the equal-weight average rank (user decision). Stored sensitivity checks: tail-heavy (×3 on q01/q05), moment-heavy (×3 on the moments), plus a diagnostic multi-day-only scheme (1-day criteria weighted 0).
+- **Multi-day VaR** comes from the simulated paths (sum of daily log returns), not from "1-day × √10". The square-root rule assumes independent days with constant volatility, which underestimates risk when volatility clusters.
+- **Result (universe runs 2025-11-03, 2026-11-13: 231 reports):** equal weights select **HS in 212**, FHS 14, GARCH-t 4, Merton 1. The selection changes between equal/tail/moment weights in 28 of 231 reports. With the multi-day-only diagnostic, the choices spread (HS 86, Merton 66, GBM 36, FHS 29, GARCH-t 14).
+- **Interpretation for the paper:** the critic is in-sample, as in the base paper. HS reproduces its own window's 1-day distribution almost exactly, so it wins on the 1-day criteria; the 10-day criteria are where models really differ. Whether HS's in-sample win carries over out-of-sample is tested in E1 (Phase 5). An out-of-sample (hold-out) critic is a possible change, left for the user to decide.
+
+### D-035 · Model failures
+- **Decision:** if a model cannot be calibrated (optimizer non-convergence, non-stationary GARCH with α+β ≥ 0.999, Student-t ν ≤ 2.05, zero variance, non-finite simulation), it is skipped for that stock/date, the reason is stored in the `RiskReport`, and the critic chooses among the remaining models. Observed: 7 of 231 reports had a GARCH fit rejected as non-stationary (FHS 3, GARCH-t 4).
+- **Merton** uses the threshold calibration from D-004 (3× robust σ; fallback to GBM with fewer than 3 jumps).
+
+### D-036 · EVT on the full history
+- **Decision (user):** the peaks-over-threshold tail index is fitted on the **full** history up to `as_of` (at least 750 returns), not on the 500-day window. Threshold = 95th percentile of losses, runs declustering with run length 5 (extremes less than 6 days apart = one event, keep its largest loss), GPD fitted to cluster peaks, at least **20** clusters; otherwise "EVT: yetersiz veri".
+- **Reason:** 5% of a 500-day window is only about 25 days, and fewer clusters after declustering, too few to estimate a tail.
+- **Result:** fitted in 222 of 231 reports. Estimates for short histories can be extreme (e.g. ENERY ξ ≈ −1.1 with 23 clusters) and must be read together with the number of clusters.
+
+### D-037 · Risk level is relative
+- **Decision (user):** the cutoffs 25/50/75 on the average of the volatility and CVaR99 (1-day) percentile ranks within the combined universe on the same date, in nominal TRY. The UI calls it **"evren içi göreli risk düzeyi"** and shows absolute annualized volatility and CVaR99 next to it.
+
+### D-038 · E4 eligibility
+- **Decision (user):** E4's default subset may only use names with a valid risk report at `SELECTION_DATE`. At 2025-11-03, **DSTKF** is excluded (183 daily returns < 250). The list is in `docs/e4_eligibility.md`, generated by `python -m pusula.risk.run_universe --as-of 2025-11-03`.
+
+### D-039 · Price jumps under "review" are treated as real moves
+- **Decision (user):** the 58 `review` jumps (10.5–20.5%) stay uncorrected. BIST's daily price band was likely wider (about ±20%) for many stocks before 2021 (consistent with the data; **unverified**). The 4 proposed corrections stay `proposed` until the user confirms them on KAP. The risk engine reads `prices_clean`, so confirming them later only requires `python -m pusula.data.update --only prices` and a rerun of `python -m pusula.risk.run_universe`.
