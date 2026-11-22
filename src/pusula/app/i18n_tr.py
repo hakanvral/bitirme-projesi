@@ -101,6 +101,11 @@ TR: dict[str, str] = {
     "missing_cds": "CDS verisi yok (cds_tr_5y.csv): ülke riski faktörü ve CDS şokları devre dışı.",
     "missing_ptf": "PTF verisi yok (ptf.csv veya EPİAŞ): elektrik fiyatı faktörü devre dışı.",
     "missing_tr_2y": "2 yıllık tahvil faizi yok: faiz faktörü olarak TLREF kullanılıyor.",
+    "missing_tr_2y_short": (
+        "2 yıllık tahvil faizi dosyası 2 yıldan kısa: faiz faktörü olarak TLREF kullanılıyor "
+        "(tr_2y_yield.csv'yi 2018'den bugüne indirin)."
+    ),
+    "missing_cds_short": "CDS dosyası 2 yıldan kısa: ülke riski faktörü devre dışı.",
     "missing_fix": (
         "Dosyayı data/manual/ klasörüne koyup `uv run python -m pusula.data.update` çalıştırın; "
         "sayfa yeniden hesaplanır."

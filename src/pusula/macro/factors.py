@@ -97,15 +97,21 @@ def build_factor_panel(
 ) -> FactorPanel:
     """Weekly factors and weekly stock log returns using only data up to ``as_of``."""
     macro = splice_tlref(macro)
-    have = set(macro["series"])
+    upto = macro[macro["date"] <= pd.Timestamp(as_of)].dropna(subset=["value"])
+    weeks = upto.groupby("series")["date"].apply(lambda d: d.dt.to_period("W-FRI").nunique())
     chosen, missing = {}, []
     for fid, (_, cands) in FACTOR_DEFS.items():
-        src = next((c for c in cands if c in have), None)
-        if src is None:
+        # first candidate with enough history; a short file (e.g. a 2Y export covering only a
+        # few weeks) must not knock out the factor: fall back to the next candidate (D-049)
+        long_enough = [c for c in cands if weeks.get(c, 0) >= MIN_SERIES_WEEKS]
+        for c in cands:
+            if c in weeks and weeks[c] < MIN_SERIES_WEEKS:
+                missing.append(f"{c}(short)" if c != fid else f"{fid}(short)")
+        if long_enough:
+            chosen[fid] = long_enough[0]
+        elif fid not in {m.split("(")[0] for m in missing}:
             missing.append(fid)
-        else:
-            chosen[fid] = src
-    if "tr_2y" not in have:
+    if chosen.get("rate") != "tr_2y" and "tr_2y" not in weeks:
         missing.append("tr_2y")
 
     tick = sorted(set(symbols) | {"XU100.IS"})

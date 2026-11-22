@@ -225,3 +225,7 @@ section. IDs are stable; superseded decisions are marked, never deleted.
 
 ### D-048 · Ridge and VIF
 - **Decision:** ridge regression on standardized factors, with the penalty chosen by generalized cross-validation, as a robustness column only. VIF is reported per stock and for the factor set. **Result:** maximum VIF 1.57, i.e. no multicollinearity problem with the current factor set (CDS, which tends to move with USD/TRY and rates, is not yet included).
+
+### D-049 · A rate source must have enough history
+- **Decision:** a factor's source series is used only if it has at least 104 weeks of data up to `as_of`; otherwise the next candidate is used (for the rate factor: `tr_2y` → TLREF spliced). The page warns "tr_2y(short)".
+- **Reason:** the first 2Y yield export (investing.com) covered only 2026-10-22 → 2026-11-20 (21 days). Without this rule it would have replaced TLREF and then been dropped as too short, removing the rate factor entirely.

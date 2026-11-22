@@ -244,3 +244,23 @@ def test_optional_factors_switch_on_when_data_exists_and_ptf_only_for_electricit
     assert "ptf" in fm.factors_for("electricity", list(fp2.X))
     assert "ptf" not in fm.factors_for("natural_gas", list(fp2.X))
     assert "ptf" not in fm.factors_for(None, list(fp2.X))
+
+
+def test_short_2y_file_falls_back_to_tlref():
+    sess = xist_sessions("2019-01-02", "2023-12-29")
+    rng = np.random.default_rng(6)
+    p = price_long("XU100.IS", sess, np.exp(np.cumsum(rng.normal(0, 0.01, len(sess)))))
+
+    def series(name, dates, v):
+        return pd.DataFrame({"date": dates, "series": name, "value": v, "release_date": pd.NaT})
+
+    macro = pd.concat(
+        [
+            series("usdtry", sess, np.exp(np.cumsum(rng.normal(0.001, 0.01, len(sess))))),
+            series("tlref", sess, 10 + np.cumsum(rng.normal(0, 0.05, len(sess)))),
+            series("tr_2y", sess[-21:], np.full(21, 36.0)),  # only ~4 weeks, like a short export
+        ]
+    )
+    fp = build_factor_panel(p, macro, [], date(2023, 12, 29))
+    assert fp.rate_source == "tlref_spliced" and "rate" in fp.X.columns
+    assert "tr_2y(short)" in fp.missing
