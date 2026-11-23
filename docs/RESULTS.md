@@ -131,9 +131,46 @@ Figures: `e3_pred_vs_realised`, `e3_event_car_by_universe`.
 
 ---
 
-## E4 · Decision backtest
+## E4 · Decision backtest (weekly, 2025-11-07 → 2026-11-20)
 
-*(running; filled in when the LLM stage finishes)*
+Stocks (rule D-070; median daily traded value over the 12 months before SELECTION_DATE):
+- BIST30: THYAO, YKBNK, AKBNK, ISCTR, KCHOL;
+- Energy: TUPRS (refining), CANTE, ODAS, ZOREN (electricity), ENERY (natural gas).
+
+Setup: 54 weekly decisions per stock; costs 10 + 5 bp; cash earns TLREF; Sharpe and Sortino use TLREF as the risk-free rate.
+
+**Non-LLM strategies, 10-stock portfolio, TRY** (full window / post-cutoff window from 2026-06-01, 24 weeks)
+
+| Strategy | Cum. return | CAGR | Ann. vol | Sharpe | Sortino | Max DD | Calmar | Avg. position |
+|---|---|---|---|---|---|---|---|---|
+| Buy & hold (EW) | +2.1 % / +0.2 % | 2.0 % | 28.1 % | −1.16 / −1.16 | −1.48 | −18.3 % | 0.11 | 1.00 |
+| XU030 | +17.7 % / −10.0 % | 17.0 % | 27.2 % | −0.70 / −2.03 | −0.96 | −22.2 % | 0.77 | – |
+| Rule-based risk filter | +35.0 % / +18.5 % | 33.5 % | 12.9 % | −0.67 / −0.15 | −0.83 | −9.3 % | 3.58 | 0.29 |
+| Cash (TLREF) | +48.8 % / +19.2 % | | | | | | | 0 |
+
+Sharpe difference, rule filter − buy & hold: +0.49 (95 % CI [−0.72, 2.01], p = 0.45).
+In USD, every strategy lost value except the rule filter (+12.6 %). The USD Sharpe ratios equal the TRY ones by construction (D-070).
+
+**Long sample 2019–2026 (411 weeks, same 10 stocks)**
+
+| Strategy | Cum. return (TRY) | CAGR | Sharpe | Max DD | Cum. return (USD) |
+|---|---|---|---|---|---|
+| Buy & hold (EW) | +1,562 % | 42.7 % | 0.45 | −41.9 % | +80 % |
+| XU030 | +1,151 % | 37.7 % | 0.34 | −29.6 % | +36 % |
+| Rule-based risk filter | +879 % | 33.5 % | 0.26 | −15.5 % | +6 % |
+
+Sharpe difference, rule filter − buy & hold: −0.19 (95 % CI [−0.83, 0.40], p = 0.52).
+
+**In plain words (non-LLM part):**
+- In the LLM test year, **TLREF cash (+48.8 %) beat every equity strategy**, so all Sharpe ratios are negative. With the policy rate at 36–38 % (TLREF 35.5–40 %), Turkish stocks must clear a very high bar, which is why TLREF (not zero) is the right risk-free rate (CLAUDE.md §6.5).
+- The rule-based risk filter was in the market only 29 % of the time. That gave it the best result of the window, but the gain over buy & hold is not statistically significant.
+- Over 2019–2026 the same filter **halves the maximum drawdown (−16 % vs −42 %) but gives up return** and has a lower Sharpe ratio. It works as a risk reducer, not as an alpha source.
+
+**LLM variants (P, P+R, P+R+S, P+R+S anonymised):** *pending.* NVIDIA's hosted Nemotron 3 Ultra endpoint first throttled the batch, then reported `DEGRADED` (D-073); about 330 of the 2,160 lean calls were done. The batch resumes automatically (cached calls are skipped). Command:
+
+```bash
+PUSULA_LLM_RPM=20 PUSULA_LLM_CONCURRENCY=2 uv run python -m pusula.evaluation.trading_backtest --stages llm eval --yes
+```
 
 ## E5 · LLM reliability
 
@@ -151,3 +188,4 @@ Figures: `e3_pred_vs_realised`, `e3_event_car_by_universe`.
 | E2 | `e2_r2_is_oos` | In-sample vs out-of-sample R², Model A/B, by universe |
 | E3 | `e3_pred_vs_realised` | Predicted vs realised [−1, +5] reaction per stock-event |
 | E3 | `e3_event_car_by_universe` | Mean CAR per rate change, BIST30 vs Energy |
+| E4 | `e4_equity_curves` | Portfolio value of all strategies vs TLREF cash, post-cutoff marker |

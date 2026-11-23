@@ -112,3 +112,32 @@ TUPRS, AYGAZ (refining) · ENERY, AHGAZ (natural gas, relaxed rule) · CANTE, OD
 - **Estimates at 35 RPM, 4 parallel requests:** E4 lean (2,080 requests) ~1.0 h; full-pipeline sample (240) ~0.6 h; auditor 10% (208) ~0.5 h; E5 k=5 × 20 analyses (600) ~1.6 h.
 - **Tests:** 136 passed (mock-based; no network); ruff clean.
 - **Open:** Turkish is not in the model's official language list (L-13); the numeric audit is value-based (L-15); model-to-model disagreement on the same input (D-055) can be measured in E5.
+
+## Step 0 · Prompt v3: ✅ done (2026-11-23)
+- Glossary wording (VaR, factor sensitivities), sentence-form `temel_riskler`, no new thresholds, Turkish self-check; prompts v3 (auditor v4).
+- The numeric audit matches unit and context; the trend input has the RSI zone and its thresholds; the token budget is 16,384 (D-065, D-068).
+- THYAO and ENJSA reruns: audit passed with no regeneration (165 / 213 numbers). Before/after: `docs/prompt_v3_before_after.md`.
+
+## P5 + P6 · Experiments (2026-11-23)
+- **Code:** `src/pusula/evaluation/` (`var_backtest`, `factor_eval`, `event_study`, `trading_backtest`, `llm_reliability`, `paper_results`, `common`); tests in `tests/test_evaluation.py`.
+- **Results:** see `docs/RESULTS.md`.
+- **E1 ✅:** 41 stocks, 73,842 stock-days, 44 min. GARCH-t and FHS are best. The hold-out critic beats the in-sample critic and HS at 95 % (36/41 stocks) but not at 99 %.
+- **E2 ✅:**
+  - in-sample R² A/B: BIST30 0.14 / 0.46, Energy 0.09 / 0.33;
+  - out-of-sample R² A ≈ 0 (negative), B ≈ 0.36 / 0.24;
+  - BIST30 is more CDS- and USD/TRY-sensitive.
+  - Fixed the empty regime-beta bug.
+- **E3 ✅:** 37 rate changes; direction accuracy 0.53 [0.44, 0.61], i.e. no predictive skill for announcement reactions.
+- **E4 non-LLM ✅:**
+  - TLREF cash (+48.8 %) beat all equity strategies in the test year;
+  - the rule filter halves drawdowns over 2019–2026 but lowers the Sharpe ratio.
+- **E4 LLM ⏸:** ~330 of 2,160 lean calls done. The NVIDIA NIM endpoint was throttled, then DEGRADED (D-073). It resumes automatically or with the command in the checklist.
+- **E5 ⏸:** waits for the endpoint. Cross-model calls (Kimi, Gemma) are being pre-cached, slowly.
+
+## P7 · Polish (2026-11-23)
+- **Genel Bakış** page: macro snapshot with weekly changes and point-in-time CPI; risk heatmap of both universes.
+- **Backtest & Değerlendirme** page (E1–E5 viewer).
+- `python -m pusula.demo.warmup`.
+- Turkish README (setup, keys and files, data update, app, reproducing the results).
+- CLAUDE.md commands; LIMITATIONS L-15 (updated), L-16, L-17.
+- Infrastructure: single-thread spawn worker pools; read-only Store with lock retry; LLM pace overrides via environment variables.
