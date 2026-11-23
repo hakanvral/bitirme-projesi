@@ -30,9 +30,13 @@ def _table(run: Path, name: str, query: str | None = None, cols: list[str] | Non
     if cols:
         df = df[[c for c in cols if c in df.columns]]
     shown = df.rename(columns=EVAL_COLUMNS)
-    num = shown.select_dtypes("number").columns
+    fmt = {}
+    for c in shown.select_dtypes("number").columns:
+        vals = shown[c].dropna()
+        whole = not vals.empty and bool((vals % 1 == 0).all())
+        fmt[c] = "{:,.0f}" if whole else "{:.3f}"
     st.dataframe(
-        shown.style.format({c: "{:.3f}" for c in num}, na_rep="—"),
+        shown.style.format(fmt, na_rep="—"),
         hide_index=True,
         use_container_width=True,
     )

@@ -88,7 +88,7 @@ What we take from it:
 **LLM defaults** (`config/settings.yaml` → `llm`, overridable in `.env`; D-054, D-055):
 - provider `openai_compatible`, base_url `https://integrate.api.nvidia.com/v1`, key `NVIDIA_API_KEY` (cloud: network secret)
 - model `nvidia/nemotron-3-ultra-550b-a55b` for analysts, decision **and** auditor (no smaller model passed the auditor test)
-- 35 requests/min client-side limit, up to 4 parallel requests, temperature 0.2, max 4096 tokens
+- 35 requests/min client-side limit, up to 4 parallel requests, temperature 0.2, max 16384 tokens (hidden reasoning needs room, D-068)
 - lean (E4) calls: reasoning off (`enable_thinking: false`, D-061)
 - cost = 0 on the free tier: track tokens and latency (cost fields kept)
 
@@ -457,6 +457,12 @@ uv run python -m pusula.data.jump_review --write  # classify price jumps, propos
 uv run python -m pusula.risk.run_universe --as-of YYYY-MM-DD  # risk reports + relative risk levels
 uv run python -m pusula.macro.run --as-of YYYY-MM-DD  # factor models, pass-through, preset scenarios
 uv run python -m pusula.agents.plan              # E4/E5 wall-clock estimate at the rate limit
+uv run python -m pusula.evaluation.var_backtest   # E1 rolling VaR backtest (~45 min, 4 cores)
+uv run python -m pusula.evaluation.factor_eval    # E2 factor model evaluation
+uv run python -m pusula.evaluation.event_study    # E3 PPK event study
+uv run python -m pusula.evaluation.trading_backtest --yes   # E4 (stages risk inputs llm eval; resumable)
+uv run python -m pusula.evaluation.llm_reliability --yes    # E5 (resumable via the cache)
+uv run python -m pusula.demo.warmup              # pre-run demo analyses (THYAO, AKBNK, ENJSA, TUPRS)
 uv run streamlit run src/pusula/app/Home.py      # dashboard
 uv run pytest                                    # tests
 uv run ruff check . && uv run ruff format .      # lint/format
@@ -499,3 +505,9 @@ P2/P3 revisions and Phase 4 (2026-11-22, D-049 … D-062):
 - Rate factor = 2Y yield (≥2 years of history), TLREF as a robustness comparison; CDS included.
 - LLM: NVIDIA NIM (Nemotron 3 Ultra), OpenAI-compatible client, JSON mode + pydantic retries, SQLite cache, 35 RPM limiter, resumable batches, tokens/latency logging.
 - Agents: Risk Analisti, Senaryo Analisti, Bull/Bear/Judge, Denetçi (numeric check with Turkish number formats + LLM consistency, regenerate once). Modes full/lean/anonymized; ablations P, P+R, P+R+S.
+
+Phases 5–7 (2026-11-23, D-065 … D-072):
+- Prompt v3: glossary wording, no new thresholds, sentence-form risks, Turkish self-check; numeric audit matches unit and context; RSI zone/thresholds in the trend input.
+- E1 exact-quantile VaR, refit every 5 days, both critics rerun per refit; E2 rolling OOS R² (104/26 weeks); E3 market-model CAR [−1,+5] vs scenario engine fitted pre-event; E4 10 stocks by liquidity, weekly, BEKLE = keep, cash at TLREF, rule filter = MA200 + VaR99 below its 1-year median; E5 k=5 repeats at production temperature, cross-model, reasoning on/off, 6 full audits.
+- Experiment worker pools are single-thread `spawn` processes with a read-only Store (DuckDB lock retry).
+- Anonymised mode also hides sector-specific limitation texts.
