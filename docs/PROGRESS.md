@@ -12,7 +12,7 @@ Status: ✅ done · 🔄 running · ⏳ todo. Updated after each experiment.
 | E1 VaR backtest | ✅ done (41 stocks, 73,842 stock-days, 44 min) | `results/e1_var/<ts>/` | `uv run python -m pusula.evaluation.var_backtest` |
 | E2 factor model | ✅ done | `results/e2_factor/<ts>/` | `uv run python -m pusula.evaluation.factor_eval` |
 | E3 PPK event study | ✅ done | `results/e3_event/<ts>/` | `uv run python -m pusula.evaluation.event_study` |
-| E4 decision backtest (LLM, resumable) | risk ✅ inputs ✅ non-LLM eval ✅; LLM 🔄 via `llm_runner` (order P+R+S → P → E5 → anon → P+R; status block below) | `results/e4_backtest/<ts>/`, `llm_state/e4_decisions.csv` | `uv run python -m pusula.evaluation.llm_runner all` |
+| E4 decision backtest (LLM, resumable) | risk ✅ inputs ✅ non-LLM ✅ **P+R+S ✅ (540/540, evaluated)**; P 🔄 112/540; anon, P+R ⏳ | `results/e4_backtest/<ts>/`, `llm_state/e4_decisions.csv` | `uv run python -m pusula.evaluation.llm_runner all` |
 | E5 LLM reliability (reduced, D-074) | ⏳ starts after E4 P+R+S and P | `results/e5_llm/<ts>/` | (part of `llm_runner all`) or `uv run python -m pusula.evaluation.llm_runner e5` |
 | paper_results + docs/RESULTS.md + Backtest page | ✅ (E4 LLM part and E5 marked pending) | `results/`, `docs/RESULTS.md` | `uv run python -m pusula.evaluation.paper_results` |
 | Phase 7: Genel Bakış, demo warmup, README, cleanup | ✅ (warmup needs the endpoint to run) | | `uv run python -m pusula.demo.warmup` |

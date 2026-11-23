@@ -1296,7 +1296,7 @@ def s14_e4_decisions() -> list[str]:
         left += dist[c].to_numpy()
     ax.axvline(0.7, color="black", ls=":", lw=0.8)
     fmt_axis(ax, "x", "frac", 0)
-    ax.legend(ncol=3, fontsize=7, loc="lower right")
+    ax.legend(ncol=3, fontsize=7, loc="upper center", bbox_to_anchor=(0.5, -0.25), frameon=False)
     ax.set_title("E4: LLM karar dağılımı (noktalı çizgi: BEKLE %70 eşiği)", loc="left")
     fig.tight_layout()
     return save_fig(fig, "sekil_14_e4_karar_dagilimi")

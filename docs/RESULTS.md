@@ -167,11 +167,42 @@ Sharpe difference, rule filter − buy & hold: −0.19 (95 % CI [−0.83, 0.40],
 - The rule-based risk filter was in the market only 29 % of the time. That gave it the best result of the window, but the gain over buy & hold is not statistically significant.
 - Over 2019–2026 the same filter **halves the maximum drawdown (−16 % vs −42 %) but gives up return** and has a lower Sharpe ratio. It works as a risk reducer, not as an alpha source.
 
-**LLM variants (P, P+R, P+R+S, P+R+S anonymised):** *pending.* NVIDIA's hosted Nemotron 3 Ultra endpoint first throttled the batch, then reported `DEGRADED` (D-073); about 330 of the 2,160 lean calls were done. The batch resumes automatically (cached calls are skipped). Command:
+**LLM variants** (lean, reasoning off, Nemotron 3 Ultra; evaluated only at ≥ 98 % coverage, D-074; status 2026-11-23 15:45 UTC)
 
-```bash
-PUSULA_LLM_RPM=20 PUSULA_LLM_CONCURRENCY=2 uv run python -m pusula.evaluation.trading_backtest --stages llm eval --yes
-```
+| Variant | Coverage | Status |
+|---|---|---|
+| P+R+S | 540 / 540 (100 %) | ✅ evaluated |
+| P | 112 / 540 | 🔄 running |
+| P+R+S anonymised | 0 / 540 | ⏳ |
+| P+R | 0 / 540 | ⏳ |
+
+**LLM P+R+S vs the non-LLM strategies, TRY** (full window / post-cutoff window)
+
+| Strategy | Cum. return | Ann. vol | Sharpe (TLREF) | Max DD | Avg. position | Weekly turnover |
+|---|---|---|---|---|---|---|
+| Buy & hold (EW) | +2.1 % / +0.2 % | 28.1 % | −1.16 / −1.16 | −18.3 % | 1.00 | 0.019 |
+| Rule-based risk filter | +35.0 % / +18.5 % | 12.9 % | −0.67 / −0.15 | −9.3 % | 0.29 | 0.165 |
+| **LLM P+R+S** (BEKLE = keep) | **+44.6 % / +18.3 %** | **6.5 %** | **−0.41 / −0.15** | **−1.9 %** | 0.22 | 0.006 |
+| LLM P+R+S (BEKLE = 50 %) | +38.8 % / +16.2 % | 7.5 % | −0.87 / −0.63 | −2.4 % | 0.26 | 0.125 |
+| XU030 | +17.7 % / −10.0 % | 27.2 % | −0.70 / −2.03 | −22.2 % | – | – |
+| Cash (TLREF) | +48.8 % / +19.2 % | | | | 0 | |
+
+Sharpe differences (stationary bootstrap, 95 % CI):
+
+| Comparison | Full window | Post-cutoff |
+|---|---|---|
+| LLM P+R+S − buy & hold | +0.76 [−1.10, 2.71], p = 0.45 | +1.01 [−1.33, 4.37], p = 0.43 |
+| LLM P+R+S − rule filter | +0.27 [−2.31, 2.76], p = 0.87 | +0.00 [−4.77, 4.85], p = 0.99 |
+
+Decisions of P+R+S:
+- AL 2.6 %, ALMA 51.7 %, BEKLE 45.7 %; no BEKLE dominance (< 70 %), no failed calls.
+- By stock: mostly ALMA for the banks and small energy names (AKBNK, YKBNK 81 %, CANTE 91 %, ENERY 98 %); mostly BEKLE for THYAO (96 %), KCHOL (93 %) and TUPRS (85 %).
+- The partial P variant (112 decisions) is 86 % BEKLE: price/trend information alone mostly leads to "wait"; to be confirmed when P is complete.
+
+**In plain words (LLM part):**
+- With risk and scenario information, the LLM was **very cautious**: it chose AL in only 2.6 % of stock-weeks and was invested 22 % of the time on average.
+- In a year in which TLREF cash (+48.8 %) beat every equity strategy, this caution gave the **lowest volatility and drawdown** (−1.9 %) and the best Sharpe ratio of the equity strategies, but still less than cash (+44.6 %).
+- **None of the Sharpe differences is statistically significant**: the 95 % intervals are wide and include zero (52 weeks, L-17). Much of the result comes from staying out of the market in a high-rate year, not from picking winners. The P, P+R and anonymised variants will show which input caused the caution.
 
 ## E5 · LLM reliability
 
@@ -202,3 +233,4 @@ PUSULA_LLM_RPM=20 PUSULA_LLM_CONCURRENCY=2 uv run python -m pusula.evaluation.ll
 | E3 | `e3_pred_vs_realised` | Predicted vs realised [−1, +5] reaction per stock-event |
 | E3 | `e3_event_car_by_universe` | Mean CAR per rate change, BIST30 vs Energy |
 | E4 | `e4_equity_curves` | Portfolio value of all strategies vs TLREF cash, post-cutoff marker |
+| E4 (paper) | `results/paper/figures_tr/sekil_13_*`, `sekil_14_*` | Equity and drawdown curves; LLM decision distribution |
