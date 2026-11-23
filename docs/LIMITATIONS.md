@@ -45,4 +45,10 @@ Turkish is not in Nemotron 3 Ultra's list of officially supported languages; out
 On PPK days the 2Y yield moves much less than the policy rate (current regime β ≈ 0.19 with a wide band), so policy-rate scenarios have small, uncertain effects (D-052).
 
 ### L-15 · The numeric audit checks values, not meaning
-A number passes if the same value appears anywhere in the input. A threshold invented by the model can therefore pass when that value happens to occur elsewhere (live example: "volatility below %30" passed because "−%30" appears in a scenario name). Semantic misreadings (e.g. describing VaR as "the worst-day loss") are left to the LLM consistency check and to human review.
+Originally, a number passed if the same value appeared anywhere in the input, so an invented threshold could pass by coincidence (live example: "volatility below %30" passed because "−%30" appears in a scenario name). Since prompt v3 (D-065) the check also requires a compatible unit, and, for numbers inside input strings, a matching context keyword, sign and direction. This closes that case but is still a heuristic: a number with the right unit and a coincidentally equal value elsewhere in the input still passes, and the ±70-character keyword window can be fooled. Semantic misreadings (e.g. describing VaR as "the worst-day loss") are left to the prompt rules, the LLM consistency check and human review.
+
+### L-16 · E3 predictions start in 2020 and rest on few events
+The factor model needs 104 weeks of factor history, and the data start in 2018-01, so the four 2019 rate cuts have realised reactions only. Predictions cover 37 rate changes (2020–2026), clustered in a few policy cycles; per-sub-sector results rest on 2–6 stocks. The scenario engine predicts a 1-week expected response from weekly betas, while the event window is 7 trading days around a single announcement. A mismatch in horizon and in information (surprise vs expected decision) is therefore built in.
+
+### L-17 · E4 has low statistical power
+52 weekly decisions on 10 stocks cannot separate strategies with similar Sharpe ratios; the bootstrap intervals are wide. The non-LLM strategies are also run over 2019–2026 for context, but the LLM variants cannot be (cost and the look-ahead problem).

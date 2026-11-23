@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import argparse
 import time
-from concurrent.futures import ProcessPoolExecutor
 from datetime import date
 
 import numpy as np
@@ -34,7 +33,14 @@ from scipy import optimize, stats
 
 from pusula.config import get_settings
 from pusula.data.store import Store
-from pusula.evaluation.common import mark_latest, new_run_dir, regime_of, save_fig, save_table
+from pusula.evaluation.common import (
+    mark_latest,
+    new_run_dir,
+    process_pool,
+    regime_of,
+    save_fig,
+    save_table,
+)
 from pusula.logging_setup import setup_logging
 from pusula.risk import critic as critic_mod
 from pusula.risk.engine import daily_returns, load_inputs
@@ -453,8 +459,12 @@ def run(start: str = START, workers: int = 4, symbols: list[str] | None = None) 
     out = new_run_dir("e1_var", params)
     t0 = time.perf_counter()
     jobs = [(sym, rets[sym], cfg, seed, start) for sym in syms if len(rets[sym]) > cfg.min_history]
-    with ProcessPoolExecutor(max_workers=workers) as ex:
-        parts = list(ex.map(backtest_stock, jobs))
+    parts = []
+    with process_pool(workers) as ex:
+        for i, part in enumerate(ex.map(backtest_stock, jobs), 1):
+            parts.append(part)
+            el = (time.perf_counter() - t0) / 60
+            print(f"[e1] {i}/{len(jobs)} stocks done ({el:.1f} min)", flush=True)
     panel = pd.concat([p for p in parts if not p.empty], ignore_index=True)
     panel["regime"] = regime_of(panel["date"]).to_numpy()
     panel.to_parquet(out / "var_forecasts.parquet", index=False)

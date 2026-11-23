@@ -96,7 +96,7 @@ for i, r in enumerate(snap.itertuples()):
         continue
     fmt = f"{{:,.{int(r.nd)}f}}"
     val = fmt.format(r.value).replace(",", "X").replace(".", ",").replace("X", ".")
-    unit = f" {r.unit}" if r.unit in ("bp", "$", "€") else r.unit
+    shown = f"%{val}" if r.unit == "%" else (f"{val} {r.unit}" if r.unit else val)
     delta = None
     if r.prev is not None and not pd.isna(r.prev):
         if r.key in ("policy_rate", "tlref", "cds_5y"):
@@ -104,8 +104,9 @@ for i, r in enumerate(snap.itertuples()):
                 " bp" if r.unit == "bp" else " puan"
             )
         else:
-            delta = f"{(r.value / r.prev - 1) * 100:+.2f}%".replace(".", ",")
-    c.metric(r.label, f"{val}{unit}", delta, delta_color="off", help=t("ov_as_of").format(d=r.date))
+            chg = (r.value / r.prev - 1) * 100
+            delta = ("+" if chg >= 0 else "−") + f"%{abs(chg):.2f}".replace(".", ",")
+    c.metric(r.label, shown, delta, delta_color="off", help=t("ov_as_of").format(d=r.date))
 st.caption(t("ov_delta_note"))
 
 # ----------------------------------------------------------------------------- risk heatmap
@@ -166,8 +167,10 @@ else:
             row=1,
             col=k,
         )
-    fig.update_xaxes(showticklabels=False, showgrid=False, zeroline=False)
-    fig.update_yaxes(showticklabels=False, showgrid=False, zeroline=False, autorange="reversed")
+    fig.update_xaxes(showticklabels=False, showgrid=False, zeroline=False, ticks="")
+    fig.update_yaxes(
+        showticklabels=False, showgrid=False, zeroline=False, ticks="", autorange="reversed"
+    )
     fig.update_layout(height=430, margin={"t": 40, "b": 10, "l": 10, "r": 10})
     st.plotly_chart(fig, use_container_width=True)
     st.caption(t("ov_overlap_note"))

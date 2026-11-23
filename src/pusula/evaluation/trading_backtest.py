@@ -33,7 +33,6 @@ from __future__ import annotations
 import argparse
 import json
 import time
-from concurrent.futures import ProcessPoolExecutor
 from datetime import date
 
 import numpy as np
@@ -45,6 +44,7 @@ from pusula.evaluation.common import (
     latest_run,
     mark_latest,
     new_run_dir,
+    process_pool,
     save_fig,
     save_table,
 )
@@ -62,9 +62,9 @@ N_BOOT = 5000
 BLOCK_MEAN = 4
 
 
-def _store() -> Store:
+def _store(read_only: bool = False) -> Store:
     s = get_settings()
-    return Store(s.paths.db_path, s.paths.raw_dir)
+    return Store(s.paths.db_path, s.paths.raw_dir, read_only=read_only)
 
 
 def inputs_dir():
@@ -120,7 +120,7 @@ def _risk_worker(d: date) -> tuple[date, pd.DataFrame | str]:
 
     setup_logging("ERROR")
     try:
-        return d, run(d, ("TRY",), _store(), persist=False)
+        return d, run(d, ("TRY",), _store(read_only=True), persist=False)
     except Exception as exc:  # recorded, the stage continues
         return d, f"{type(exc).__name__}: {exc}"
 
@@ -135,7 +135,7 @@ def stage_risk(dates: list[date], workers: int) -> None:
     todo = [d for d in dates if d not in have]
     print(f"[risk] {len(dates) - len(todo)} dates done, {len(todo)} to compute", flush=True)
     t0 = time.perf_counter()
-    with ProcessPoolExecutor(max_workers=workers) as ex:
+    with process_pool(workers) as ex:
         for i, (d, tab) in enumerate(ex.map(_risk_worker, todo), 1):
             if isinstance(tab, str):
                 print(f"[risk] {d} failed: {tab}", flush=True)
@@ -153,7 +153,7 @@ def _inputs_worker(args) -> tuple[date, str | None]:
     path = inputs_dir() / f"{d:%Y%m%d}.json"
     if path.exists():
         return d, None
-    store = _store()
+    store = _store(read_only=True)
     rec = {}
     try:
         for sym in symbols:
@@ -175,7 +175,7 @@ def stage_inputs(dates: list[date], symbols: list[str], workers: int) -> None:
     todo = [d for d in dates if not (inputs_dir() / f"{d:%Y%m%d}.json").exists()]
     print(f"[inputs] {len(dates) - len(todo)} dates cached, {len(todo)} to build", flush=True)
     t0 = time.perf_counter()
-    with ProcessPoolExecutor(max_workers=workers) as ex:
+    with process_pool(workers) as ex:
         for i, (d, err) in enumerate(ex.map(_inputs_worker, [(d, symbols) for d in todo]), 1):
             msg = f"failed: {err}" if err else "ok"
             print(

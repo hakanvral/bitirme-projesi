@@ -18,6 +18,7 @@ also picks up revisions of recent values.
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, date, datetime
@@ -110,16 +111,33 @@ def _now() -> datetime:
 
 
 class Store:
-    def __init__(self, db_path: Path, raw_dir: Path | None = None) -> None:
+    def __init__(
+        self, db_path: Path, raw_dir: Path | None = None, read_only: bool = False
+    ) -> None:
+        """``read_only=True`` (parallel experiment workers) never opens the file for writing,
+        so several processes can read at the same time."""
         self.db_path = Path(db_path)
         self.raw_dir = Path(raw_dir) if raw_dir else self.db_path.parent / "raw"
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        with self.connect() as con:
-            con.execute(SCHEMA)
+        self.read_only = read_only
+        if not read_only:
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            with self.connect() as con:
+                con.execute(SCHEMA)
 
     @contextmanager
     def connect(self, read_only: bool = False) -> Iterator[duckdb.DuckDBPyConnection]:
-        con = duckdb.connect(str(self.db_path), read_only=read_only)
+        """Short-lived connection. DuckDB allows one writing process at a time; when another
+        process holds the file lock we retry for up to ~60 s (connections are short)."""
+        if self.read_only and not read_only:
+            raise RuntimeError("this Store was opened read-only")
+        for attempt in range(120):
+            try:
+                con = duckdb.connect(str(self.db_path), read_only=read_only)
+                break
+            except duckdb.IOException as exc:
+                if "lock" not in str(exc).lower() or attempt == 119:
+                    raise
+                time.sleep(0.5)
         try:
             yield con
         finally:

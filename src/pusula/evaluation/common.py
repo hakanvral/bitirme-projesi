@@ -102,3 +102,19 @@ def regime_of(dates: pd.Series | pd.DatetimeIndex) -> pd.Series:
         hi = pd.Timestamp(r["end"]) if r.get("end") else pd.Timestamp.max
         out[(d >= lo) & (d < hi)] = r["id"]
     return out
+
+
+def process_pool(workers: int):
+    """Process pool whose workers use one BLAS/OpenMP thread each.
+
+    numpy/scipy/arch start several numeric threads per process; with one process per core this
+    oversubscribes the CPU (seen in the first E1 run: load ≈ 13 on 4 cores). Workers are started
+    with 'spawn' so the thread limits below are read before numpy is imported.
+    """
+    import multiprocessing as mp
+    import os
+    from concurrent.futures import ProcessPoolExecutor
+
+    for var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+        os.environ[var] = "1"
+    return ProcessPoolExecutor(max_workers=workers, mp_context=mp.get_context("spawn"))
