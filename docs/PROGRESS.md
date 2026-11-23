@@ -30,7 +30,7 @@ Status: ✅ done · 🔄 running · ⏳ todo. Updated after each experiment.
 
 Current pace: 10 RPM (1 worker).
 
-Variant P+R+S finished at 2026-11-23 21:44 UTC.
+Variant P finished at 2026-11-23 21:44 UTC.
 
 Resume: `uv run python -m pusula.evaluation.llm_runner all` (fresh container: see `docs/RUN_LLM_LOCALLY.md`).
 
