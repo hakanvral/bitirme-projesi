@@ -111,9 +111,7 @@ def _now() -> datetime:
 
 
 class Store:
-    def __init__(
-        self, db_path: Path, raw_dir: Path | None = None, read_only: bool = False
-    ) -> None:
+    def __init__(self, db_path: Path, raw_dir: Path | None = None, read_only: bool = False) -> None:
         """``read_only=True`` (parallel experiment workers) never opens the file for writing,
         so several processes can read at the same time."""
         self.db_path = Path(db_path)

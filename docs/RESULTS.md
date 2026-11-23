@@ -174,7 +174,19 @@ PUSULA_LLM_RPM=20 PUSULA_LLM_CONCURRENCY=2 uv run python -m pusula.evaluation.tr
 
 ## E5 · LLM reliability
 
-*(running)*
+*Pending: needs the Nemotron 3 Ultra endpoint (D-073).* The code, design and tests are in place (`src/pusula/evaluation/llm_reliability.py`, D-071):
+- k = 5 repeats on 20 stock-weeks, Fleiss' κ;
+- Nemotron vs Kimi K3.1 Pro vs Gemma 4 31B;
+- reasoning on vs off;
+- decision distribution per model;
+- 6 full-mode audits;
+- JSON failure rate and latency.
+
+Evidence so far from P4 and Step 0 (full mode, 4 runs): the numeric audit passed in every final report, and the v3 prompts needed no regeneration (THYAO 165 numbers, ENJSA 213). Lean calls took ~2 s with reasoning off. Command:
+
+```bash
+PUSULA_LLM_RPM=20 PUSULA_LLM_CONCURRENCY=2 uv run python -m pusula.evaluation.llm_reliability --yes
+```
 
 ---
 

@@ -101,6 +101,7 @@ Deneyler tek tek de çalıştırılabilir:
 | E5 LLM güvenilirliği | `uv run python -m pusula.evaluation.llm_reliability` | ~1–2 sa | ~200 çağrı + 6 tam analiz |
 
 - Her çalıştırma `results/<deney>/<zaman>/` klasörüne CSV, LaTeX, PNG ve SVG dosyalarını ve kullanılan yapılandırmanın bir kopyasını yazar.
+- NVIDIA'nın ücretsiz katmanı yoğun olduğunda istekleri kısıtlayabilir veya modeli geçici olarak kapatabilir (D-073). Hızı düşürmek için: `PUSULA_LLM_RPM=20 PUSULA_LLM_CONCURRENCY=2` ortam değişkenleri.
 - E4 ve E5 **devam ettirilebilir**: biten LLM çağrıları `data/llm_cache.sqlite` önbelleğinde tutulur, yeniden çalıştırmada atlanır.
 - E4'ün aşamaları ayrı ayrı çalıştırılabilir: `--stages risk inputs llm eval`.
 - Özet ve yorumlar: [`docs/RESULTS.md`](docs/RESULTS.md).

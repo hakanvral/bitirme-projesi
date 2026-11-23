@@ -570,6 +570,7 @@ def plot_equity(port: dict[str, pd.Series], rf: pd.Series, out) -> list[str]:
         "LLM P+R+S": ("#E31A1C", "-"),
         "LLM P+R+S-anon": ("#FB9A99", "--"),
     }
+
     def curve(r: pd.Series) -> tuple[list, np.ndarray]:
         """Value at the END of each holding week, starting from 1 at the first decision."""
         idx = list(r.index)
