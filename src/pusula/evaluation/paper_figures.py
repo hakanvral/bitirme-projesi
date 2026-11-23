@@ -1423,6 +1423,256 @@ def s15_e5_agreement() -> list[str]:
     return save_fig(fig, "sekil_15_e5_uyum_matrisi")
 
 
+# --------------------------------------------------------------------------- case studies
+def _scenario_dists(shocks: dict, symbols: list[str], horizon: str = "3m", basis: str = "TRY"):
+    """Simulated 3-month simple returns (baseline, scenario) per stock, propagated mode, with the
+    same random numbers as the engine's own run."""
+    from pusula.macro.context import build_context, current_passthrough, make_engine
+    from pusula.macro.scenarios import HORIZONS, to_factor_shocks
+
+    ctx = _SCEN.get("ctx") or build_context(store(), AS_OF)
+    eng = make_engine(ctx)
+    spec = to_factor_shocks(shocks, eng.factors, current_passthrough(ctx))
+    h = HORIZONS[horizon]
+    z, idx = eng._random(h)
+    Xb, _ = eng.macro_draws(h, None, "propagated", z)
+    Xs, _ = eng.macro_draws(h, spec.factor_shocks, "propagated", z)
+    out = {}
+    for sym in symbols:
+        rb = eng.to_basis(eng.stock_returns(sym, Xb, h, idx[sym]), Xb, h, basis)
+        rs = eng.to_basis(eng.stock_returns(sym, Xs, h, idx[sym]), Xs, h, basis)
+        out[sym] = (np.expm1(rb), np.expm1(rs))
+    return out, spec
+
+
+def vaka_a_rate_cut() -> list[str]:
+    plt = plt_setup()
+    syms = [
+        ("THYAO.IS", BLUE, "THYAO (BIST30)"),
+        ("ENJSA.IS", SUB_COLORS["electricity"], "ENJSA (Enerji: elektrik)"),
+        ("TUPRS.IS", SUB_COLORS["refining_petroleum"], "TUPRS (Enerji: rafineri; BIST30)"),
+    ]
+    d, spec = _scenario_dists({"policy_rate_bp": -300}, [x[0] for x in syms])
+    fig, axes = plt.subplots(1, 3, figsize=(8.6, 3.0), sharey=True)
+    bins = np.linspace(-0.6, 0.8, 70)
+    for ax, (sym, col, title) in zip(axes, syms, strict=True):
+        b, sc = d[sym]
+        ax.hist(b, bins=bins, color="#BBBBBB", alpha=0.8, density=True, label="baz (şoksuz)")
+        ax.hist(
+            sc, bins=bins, histtype="step", color=col, lw=1.4, density=True, label="faiz −300 bp"
+        )
+        de = sc.mean() - b.mean()
+        dv = np.quantile(-sc, 0.99) - np.quantile(-b, 0.99)
+        dv_txt = ("+" if dv > 0 else "−" if dv < 0 else "") + tr_num(abs(dv) * 100, 2)
+        ax.text(
+            0.03,
+            0.96,
+            f"Δ beklenen getiri {tr_pct(de, 2, sign=True)}\nΔ VaR %99 {dv_txt} puan",
+            transform=ax.transAxes,
+            va="top",
+            fontsize=7,
+        )
+        ax.set_title(title, loc="left", fontsize=8.5)
+        ax.set_ylim(0, ax.get_ylim()[1] * 1.3)  # room for the text
+        fmt_axis(ax, "x", "frac", 0)
+        ax.set_yticks([])
+    h, lab = axes[0].get_legend_handles_labels()
+    fig.legend(h, lab, fontsize=7, loc="lower center", ncol=2, bbox_to_anchor=(0.5, -0.02))
+    lo, mid, hi = spec.rate_band
+    fig.suptitle(
+        f"Vaka (a): politika faizi −300 bp → 2Y faiz {tr_num(mid, 2)} puan (%90 bant {tr_num(lo, 2)} … {tr_num(hi, 2)}); "
+        "3 aylık getiri dağılımı, TL",
+        fontsize=9.5,
+        x=0.02,
+        ha="left",
+    )
+    fig.tight_layout(rect=(0, 0.07, 1, 1))
+    return save_fig(fig, "sekil_17_vaka_a_faiz_indirimi")
+
+
+def vaka_b_country_risk() -> list[str]:
+    plt = plt_setup()
+    df = scenario_results()
+    d = df[(df["scenario_id"] == "ulke_riski") & (df["basis"] == "TRY")].drop_duplicates(
+        ["symbol", "universe"]
+    )
+    groups = [("BIST30", d[d["universe"] == "BIST30"], BLUE)]
+    for sub in ("refining_petroleum", "natural_gas", "electricity"):
+        groups.append(
+            (
+                f"Enerji: {SUB_TR[sub]}",
+                d[(d["universe"] == "Energy") & (d["sub_sector"] == sub)],
+                SUB_COLORS[sub],
+            )
+        )
+    fig, ax = plt.subplots(figsize=(7.4, 3.4))
+    rng = np.random.default_rng(1)
+    for i, (name, g, col) in enumerate(groups):
+        v = g["d_exp_ret"].to_numpy() * 100
+        ax.scatter(
+            i + rng.uniform(-0.15, 0.15, len(v)),
+            v,
+            color=col,
+            s=22,
+            alpha=0.85,
+            edgecolor="white",
+            lw=0.4,
+        )
+        ax.hlines(np.mean(v), i - 0.3, i + 0.3, color="black", lw=1.4)
+        gs = g.sort_values("d_exp_ret")
+        show = gs if name != "BIST30" else pd.concat([gs.head(3), gs.tail(3)])
+        for _, r in show.iterrows():
+            ax.annotate(r["ticker"], (i + 0.18, r["d_exp_ret"] * 100), fontsize=5.5, va="center")
+    ax.set_xticks(range(len(groups)), [f"{n}\n(n={len(g)})" for n, g, _ in groups], fontsize=7.5)
+    ax.axhline(0, color="black", lw=0.7)
+    ax.set_ylabel("beklenen getiri değişimi, 3 ay")
+    fmt_axis(ax, "y", "pct", 0)
+    ax.set_title(
+        "Vaka (b): ülke riski artışı (CDS +200 bp), hisse bazında etki, TL (çizgi: grup ortalaması)",
+        loc="left",
+        fontsize=9,
+    )
+    fig.tight_layout()
+    return save_fig(fig, "sekil_18_vaka_b_ulke_riski")
+
+
+def vaka_c_fx_shock() -> list[str]:
+    plt = plt_setup()
+    df = scenario_results()
+    d = df[df["scenario_id"] == "kur_soku"].drop_duplicates(["symbol", "universe", "basis"])
+    d = d.assign(sub_sector=d["sub_sector"].fillna("-"))
+    piv = d.pivot_table(
+        index=["symbol", "universe", "sub_sector"], columns="basis", values="d_exp_ret"
+    ).reset_index()
+    fig, axes = plt.subplots(1, 2, figsize=(8.2, 3.5), gridspec_kw={"width_ratios": [1, 1.2]})
+    ax = axes[0]
+    labels, vals_t, vals_u, cols = [], [], [], []
+    for name, mask, col in [("BIST30", piv["universe"] == "BIST30", BLUE)] + [
+        (
+            f"Enerji: {SUB_TR[s_]}",
+            (piv["universe"] == "Energy") & (piv["sub_sector"] == s_),
+            SUB_COLORS[s_],
+        )
+        for s_ in ("refining_petroleum", "natural_gas", "electricity")
+    ]:
+        labels.append(name)
+        vals_t.append(piv.loc[mask, "TRY"].mean() * 100)
+        vals_u.append(piv.loc[mask, "USD"].mean() * 100)
+        cols.append(col)
+    x = np.arange(len(labels))
+    ax.bar(x - 0.2, vals_t, 0.4, color=cols, label="TL bazında")
+    ax.bar(
+        x + 0.2,
+        vals_u,
+        0.4,
+        color=cols,
+        alpha=0.45,
+        hatch="///",
+        edgecolor="white",
+        label="USD bazında",
+    )
+    ax.axhline(0, color="black", lw=0.7)
+    ax.set_xticks(x, labels, fontsize=7, rotation=20, ha="right")
+    fmt_axis(ax, "y", "pct", 0)
+    ax.set_title("Grup ortalaması", loc="left", fontsize=9)
+    ax.legend(fontsize=7)
+    ax = axes[1]
+    for u, g in piv.groupby("universe"):
+        for sub, gg in g.groupby("sub_sector") if u == "Energy" else [(None, g)]:
+            col = BLUE if u == "BIST30" else SUB_COLORS.get(sub, ORANGE)
+            ax.scatter(
+                gg["TRY"] * 100,
+                gg["USD"] * 100,
+                color=col,
+                s=18,
+                alpha=0.85,
+                label="BIST30" if u == "BIST30" else f"Enerji: {SUB_TR.get(sub, sub)}",
+            )
+    lim = np.nanmax(np.abs(piv[["TRY", "USD"]].to_numpy())) * 100 + 1
+    ax.plot([-lim, lim], [-lim, lim], color="grey", lw=0.8, ls="--")
+    ax.axhline(0, color="black", lw=0.6)
+    ax.axvline(0, color="black", lw=0.6)
+    ax.set_xlabel("TL bazında beklenen getiri değişimi")
+    ax.set_ylabel("USD bazında")
+    fmt_axis(ax, "x", "pct", 0)
+    fmt_axis(ax, "y", "pct", 0)
+    ax.legend(fontsize=6, loc="lower right")
+    ax.set_title("Hisse bazında: TL ve USD görünümü", loc="left", fontsize=9)
+    guard = bool(d["guard"].any())
+    fig.suptitle(
+        "Vaka (c): kur şoku (USD/TRY +%15), 3 ay"
+        + (" — şok güncel rejimin dışında, tüm örneklem ilişkileri (D-053)" if guard else ""),
+        fontsize=9.5,
+        x=0.02,
+        ha="left",
+    )
+    fig.tight_layout()
+    return save_fig(fig, "sekil_19_vaka_c_kur_soku")
+
+
+# --------------------------------------------------------------------------- agent comparison table
+AGENT_TICKERS = ["THYAO", "AKBNK", "ENJSA", "TUPRS"]
+
+
+def _first_sentence(text: str, n: int = 170) -> str:
+    t_ = text.split(". ")[0].strip().rstrip(".") + "."
+    return t_ if len(t_) <= n else t_[: n - 1].rstrip() + "…"
+
+
+def t11_agent_comparison() -> list[str]:
+    """Latest full-mode v3 run per ticker on the freeze date, from stored runs only (no LLM call)."""
+    runs = store().query(
+        "SELECT ticker, payload, created_at FROM analysis_runs WHERE as_of = ? AND mode LIKE 'full:%' "
+        "ORDER BY created_at DESC",
+        [AS_OF],
+    )
+    rows, missing = [], []
+    for tk in AGENT_TICKERS:
+        cand = runs[runs["ticker"] == f"{tk}.IS"]
+        run = None
+        for p in cand["payload"]:
+            r = json.loads(p)
+            if r.get("prompt_versions", {}).get("judge") == "judge.v3" and r.get("decision"):
+                run = r
+                break
+        if run is None:
+            missing.append(tk)
+            rows.append(
+                {
+                    "Hisse": tk,
+                    "Risk düzeyi": "–",
+                    "En büyük senaryo riski (TL, 3 ay)": "–",
+                    "Karar": "–",
+                    "Güven": "–",
+                    "Lehte (özet)": "LLM çalıştırmaları sonrasında eklenecek",
+                    "Aleyhte (özet)": "–",
+                }
+            )
+            continue
+        inp = run["inputs"]
+        sc = inp.get("senaryo", {}).get("senaryolar", [])
+        worst = min(sc, key=lambda x: x["tl_beklenen_getiri_degisimi_yuzde"]) if sc else None
+        d = run["decision"]
+        rows.append(
+            {
+                "Hisse": tk,
+                "Risk düzeyi": inp.get("risk", {}).get("risk_duzeyi", "–"),
+                "En büyük senaryo riski (TL, 3 ay)": f"{worst['senaryo']}: {tr_pct(worst['tl_beklenen_getiri_degisimi_yuzde'] / 100, 2)}"
+                if worst
+                else "–",
+                "Karar": d["karar"],
+                "Güven": tr_num(d["guven"], 2),
+                "Lehte (özet)": _first_sentence(d["lehte_gerekceler"][0]),
+                "Aleyhte (özet)": _first_sentence(d["aleyhte_gerekceler"][0]),
+            }
+        )
+    cap = (
+        "Tablo 11. Ajan kararlarının karşılaştırması (tam mod, prompt v3, veri 20.11.2026; kayıtlı çalıştırmalardan)"
+        + (f". Henüz çalıştırılmayanlar: {', '.join(missing)}" if missing else "")
+    )
+    return save_tab(pd.DataFrame(rows), "tablo_11_ajan_karar_karsilastirmasi", cap)
+
+
 ITEMS = {
     "s02": s02_macro,
     "s03": s03_fan,
@@ -1448,6 +1698,10 @@ ITEMS = {
     "t09": t09_e4_table,
     "t10": t10_e4_long,
     "s15": s15_e5_agreement,
+    "s17": vaka_a_rate_cut,
+    "s18": vaka_b_country_risk,
+    "s19": vaka_c_fx_shock,
+    "t11": t11_agent_comparison,
 }
 
 
