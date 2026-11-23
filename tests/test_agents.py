@@ -240,3 +240,29 @@ def test_risk_narrative_schema_requires_disclaimer():
             metriklerin_anlami="d",
             uyari="",
         )
+
+
+def test_consistency_failure_regenerates_named_report_and_downstream(patched):
+    r = _responses()
+    r["auditor"] = [
+        json.dumps(
+            {
+                "tutarli": False,
+                "sorunlar": ["senaryo listeleri çelişkili"],
+                "sorunlu_raporlar": ["scenario_analyst"],
+            },
+            ensure_ascii=False,
+        ),
+        json.dumps({"tutarli": True, "sorunlar": [], "sorunlu_raporlar": []}),
+    ]
+    mock = MockLLMClient(r)
+    run = pipeline.run_analysis(
+        "ODAS", date(2026, 11, 20), client=mock, light_client=mock, persist=False
+    )
+    assert run.audit.regenerated == [
+        "scenario_analyst:consistency",
+        "bull:consistency",
+        "bear:consistency",
+        "judge:consistency",
+    ]
+    assert run.audit.passed and run.audit.consistency_ok

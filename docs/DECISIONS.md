@@ -305,3 +305,10 @@ Same lean task (THYAO, 2026-11-20, P+R+S): Nemotron 3 Ultra **BEKLE** (0.6, both
 
 ### D-062 · Training cutoff of the configured model
 - **Decision:** `llm.training_cutoff = 2026-05-31` and `post_cutoff_start = 2026-06-01`, from the Nemotron 3 Ultra model card: *"The post-training data has a cutoff date of May 2026. The pre-training data has a cutoff date of September 2025."* The later date is used, conservatively. Hosts `build.nvidia.com` and `huggingface.co` were added to the environment to read the card. The E4 post-cutoff window is now 2026-06-01 → today; anonymized mode remains the main control.
+
+### D-063 · Consistency failures regenerate the named reports
+- **Decision:** the auditor's output names the reports that contain a problem (`sorunlu_raporlar`). Those reports are regenerated once with the issues fed back. If an analyst report is regenerated, the debate and decision that depend on it (Bull, Bear, Judge) are regenerated too, then the audit runs once more (prompt `auditor.v3`).
+- **Reason (found in the live check):** for ENJSA the auditor correctly found that the scenario report listed "Faiz indirimi (−300 bp)" as helpful although its effect was −0,01%, and put two scenarios in both the "hurts" and "helps" lists. Regenerating only the judge (previous policy) could not fix a scenario report, so the audit stayed failed. With D-063 the scenario report was regenerated and the second audit passed.
+
+### D-064 · Prompt v2: Turkish characters and metric wording
+- **Decision:** the shared rules require correct Turkish characters (one v1 scenario report was written in ASCII Turkish) and an exact description of metrics (simulated values are forecasts, a "medyan" is a median, shocks are quoted in their own units, e.g. "+200 baz puan", not "%200"). All prompt versions were bumped to v2 (auditor v3), and old cached answers are not reused.

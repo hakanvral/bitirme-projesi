@@ -173,15 +173,43 @@ def run_analysis(
             regenerated.append(f"{name}:numeric")
         res, recs = audit(reports, inputs, light_client if llm_audit else None, run_id)
         records += recs
-        if res.consistency_checked and not res.consistency_ok and "judge:consistency" not in (
-                regenerated):  # fmt: skip
+        if res.consistency_checked and not res.consistency_ok:
+            # D-063: regenerate exactly the reports the auditor named (once each); if an input
+            # of the debate changed, the downstream debate/decision is regenerated too.
             fb = (
                 "AUDIT FEEDBACK: the consistency check found these problems: "
                 + "; ".join(res.consistency_issues)
-                + ". Fix them in your decision."
+                + ". Fix them in your answer."
             )
-            reports["judge"] = call("judge", judge_in, fb)
-            regenerated.append("judge:consistency")
+            order = ["risk_analyst", "scenario_analyst", "bull", "bear", "judge"]
+            targets = [r for r in order if r in res.problem_reports and r in reports] or ["judge"]
+            if any(r in ("risk_analyst", "scenario_analyst") for r in targets):
+                targets = list(dict.fromkeys([*targets, "bull", "bear", "judge"]))
+            elif any(r in ("bull", "bear") for r in targets):
+                targets = list(dict.fromkeys([*targets, "judge"]))
+            for name in order:
+                if name not in targets:
+                    continue
+                if name in ("risk_analyst", "scenario_analyst"):
+                    reports[name] = call(name, inputs, fb)
+                    debate_in = {
+                        **inputs,
+                        "analist_raporlari": {
+                            k: v.model_dump()
+                            for k, v in reports.items()
+                            if k in ("risk_analyst", "scenario_analyst")
+                        },
+                    }
+                elif name in ("bull", "bear"):
+                    reports[name] = call(name, debate_in, fb if name in res.problem_reports else "")
+                else:
+                    judge_in = {
+                        **debate_in,
+                        "bull": reports["bull"].model_dump(),
+                        "bear": reports["bear"].model_dump(),
+                    }
+                    reports["judge"] = call("judge", judge_in, fb)
+                regenerated.append(f"{name}:consistency")
             res, recs = audit(reports, inputs, light_client if llm_audit else None, run_id)
             records += recs
         res.regenerated = regenerated

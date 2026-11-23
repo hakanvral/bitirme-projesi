@@ -94,5 +94,6 @@ def audit(
         res.consistency_checked = True
         res.consistency_ok = cc.tutarli
         res.consistency_issues = cc.sorunlar
+        res.problem_reports = list(cc.sorunlu_raporlar)
         res.passed = res.passed and cc.tutarli
     return res, recs

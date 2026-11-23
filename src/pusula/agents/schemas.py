@@ -71,6 +71,11 @@ class LeanDecision(BaseModel):
 class ConsistencyCheck(BaseModel):
     tutarli: bool
     sorunlar: list[str] = Field(default_factory=list)
+    # keys of the reports that contain the problems (risk_analyst, scenario_analyst, bull, bear,
+    # judge) so exactly those can be regenerated (D-063)
+    sorunlu_raporlar: list[Literal["risk_analyst", "scenario_analyst", "bull", "bear", "judge"]] = (
+        Field(default_factory=list)
+    )
 
 
 class NumericIssue(BaseModel):
@@ -88,5 +93,6 @@ class AuditResult(BaseModel):
     consistency_checked: bool = False
     consistency_ok: bool | None = None
     consistency_issues: list[str] = Field(default_factory=list)
+    problem_reports: list[str] = Field(default_factory=list)
     regenerated: list[str] = Field(default_factory=list)  # reports regenerated once
     notes: list[str] = Field(default_factory=list)

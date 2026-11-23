@@ -43,3 +43,6 @@ Turkish is not in Nemotron 3 Ultra's list of officially supported languages; out
 
 ### L-14 · Weak policy-rate pass-through to the 2Y yield
 On PPK days the 2Y yield moves much less than the policy rate (current regime β ≈ 0.19 with a wide band), so policy-rate scenarios have small, uncertain effects (D-052).
+
+### L-15 · The numeric audit checks values, not meaning
+A number passes if the same value appears anywhere in the input. A threshold invented by the model can therefore pass when that value happens to occur elsewhere (live example: "volatility below %30" passed because "−%30" appears in a scenario name). Semantic misreadings (e.g. describing VaR as "the worst-day loss") are left to the LLM consistency check and to human review.

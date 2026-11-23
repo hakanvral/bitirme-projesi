@@ -78,3 +78,20 @@ TUPRS, AYGAZ (refining) · ENERY, AHGAZ (natural gas, relaxed rule) · CANTE, OD
 - Verified by tests: known betas recovered with HAC; VIF detects collinearity; Model B keeps Model A's macro betas; ridge shrinks; rolling betas; Gaussian conditioning matches the analytic 2-D formula; propagated shift equals the analytic conditional shift; shock conversion, pass-through recovery and regime fallback; analogues find a planted window; listing-week rule; optional factors switch on when data appears; **no look-ahead** for the factor panel and betas.
 - Speed: 39 factor fits in 1.4 s; all 10 presets × 2 horizons × 2 modes for both universes in ~5 s (target < 30 s).
 - Missing inputs at this point: CDS, PTF, 2Y/10Y yields (warnings shown; TLREF used as the rate factor).
+
+## P2/P3 revisions: ✅ done (2026-11-22)
+- **Hold-out critic** is the default (fit on the first 80%, score on the realized last 20%, refit on all); in-sample kept as a variant. Model choice in 231 reports: hold-out GBM 63, GARCH-t 54, HS 53, FHS 47, Merton 14; in-sample HS 209.
+- **Scenarios in TRY / USD / Reel** (batch outputs and both pages have a basis toggle). Docs note: a weaker lira can raise TRY prices while lowering USD value.
+- **Data:** CDS (2018 → 2026-11-19) and the 2Y yield (2018 → 2026-11-20) added. The 2Y yield is the rate factor (TLREF kept as a comparison). The first two 2Y exports covered only ~20 days (handled by D-049).
+- New Model A/B mean R²: BIST30 0.140 / 0.462, Energy 0.091 / 0.286. CDS significant for 90% of stocks. Ülke riski +200 bp (3 months, TRY): BIST30 −16.0%, Energy −11.4%. Pass-through of the policy rate to the 2Y yield is weak (β 0.19), so rate scenarios shrank (D-052).
+- **Extrapolation guard** (D-053): the Kur şoku preset uses full-sample moments (z = 6.9 in the current regime).
+
+## P4 · Agents: ✅ done (2026-11-23)
+- **LLM layer** (`src/pusula/llm/`): `OpenAICompatibleClient` (NVIDIA NIM default; Ollama/others), optional `AnthropicClient`, `MockLLMClient`, SQLite cache, 35 RPM limiter with backoff, JSON mode + pydantic retries, usage logging (tokens, latency, attempts, JSON failures, cost = 0).
+- **Agents** (`src/pusula/agents/`): versioned prompts (v2/v3), input builders (P, P+R, P+R+S), Risk Analisti, Senaryo Analisti, Bull, Bear, Judge, lean decision, Denetçi (Turkish-format numeric check + LLM consistency, regenerate once). `pipeline.run_analysis` with full / lean / anonymized modes, persisted runs. `agents/batch.py` (resumable, parallel) and `python -m pusula.agents.plan` (wall-clock estimate).
+- **Pages:** Ajan Kararı, Ayarlar; LLM buttons on Hisse Risk Analizi (Agent 1) and Senaryo Laboratuvarı (Agent 2). No LLM call on page load.
+- **Model:** nvidia/nemotron-3-ultra-550b-a55b for every role (comparison in D-055). Lean calls run with reasoning off (~2 s).
+- **Live check (2026-11-20, full mode):** THYAO (BIST30) and ENJSA (Energy) both end with **BEKLE** (confidence 0.40 / 0.35) and pass the audit (171 / 181 numbers, consistency OK) after one regeneration round. Fresh runs took about 5–9 minutes and about 55–80k input / 30–40k output tokens.
+- **Estimates at 35 RPM, 4 parallel requests:** E4 lean (2,080 requests) ~1.0 h; full-pipeline sample (240) ~0.6 h; auditor 10% (208) ~0.5 h; E5 k=5 × 20 analyses (600) ~1.6 h.
+- **Tests:** 136 passed (mock-based; no network); ruff clean.
+- **Open:** Turkish is not in the model's official language list (L-13); the numeric audit is value-based (L-15); model-to-model disagreement on the same input (D-055) can be measured in E5.
