@@ -465,7 +465,8 @@ def evaluate(dec: pd.DataFrame, stocks: pd.DataFrame, dates: list[date], out, se
     }
     dec = dec.copy()
     dec["date"] = pd.to_datetime(dec["date"])
-    for v in VARIANTS:
+    present = [v for v in VARIANTS if (dec["variant"] == v).any()]
+    for v in present:
         piv = dec[dec["variant"] == v].pivot(index="date", columns="symbol", values="karar")
         piv = piv.reindex(index=idx, columns=syms)
         strat_pos[f"LLM {v}"] = piv.apply(positions)
@@ -524,6 +525,8 @@ def evaluate(dec: pd.DataFrame, stocks: pd.DataFrame, dates: list[date], out, se
     ]
     for wname, w in windows.items():
         for a, b in pairs:
+            if a not in port or b not in port:
+                continue
             ea, eb = port[a].reindex(w) - rf.reindex(w), port[b].reindex(w) - rf.reindex(w)
             ci_rows.append({"window": wname, "a": a, "b": b, **sharpe_diff_ci(ea, eb, seed)})
     save_table(
@@ -534,17 +537,20 @@ def evaluate(dec: pd.DataFrame, stocks: pd.DataFrame, dates: list[date], out, se
         caption="E4: stationary-bootstrap 95% CI of Sharpe differences (TRY)",
     )
 
-    # decision distribution
-    dist = dec.groupby(["variant", "karar"]).size().unstack(fill_value=0)
+    # decision distribution (failed calls are counted separately, not as a decision)
+    plot_equity(port, rf, out)
+    if dec.empty:
+        return {"perf": perf, "dist": None}
+    ok = dec.dropna(subset=["karar"])
+    dist = ok.groupby(["variant", "karar"]).size().unstack(fill_value=0)
     dist = dist.div(dist.sum(axis=1), axis=0).reset_index()
     dist["BEKLE_dominates_(>70%)"] = dist.get("BEKLE", 0) > 0.70
     save_table(dist, out, "e4_decision_distribution", "{:.3f}")
-    ds = dec.groupby(["variant", "symbol", "karar"]).size().unstack(fill_value=0)
+    ds = ok.groupby(["variant", "symbol", "karar"]).size().unstack(fill_value=0)
     ds = ds.div(ds.sum(axis=1), axis=0).reset_index()
     save_table(ds, out, "e4_decision_distribution_per_stock", "{:.3f}")
     fails = dec["karar"].isna().groupby(dec["variant"]).mean().rename("failed_share").reset_index()
     save_table(fails, out, "e4_failed_calls", "{:.3f}")
-    plot_equity(port, rf, out)
     return {"perf": perf, "dist": dist}
 
 
@@ -564,12 +570,18 @@ def plot_equity(port: dict[str, pd.Series], rf: pd.Series, out) -> list[str]:
         "LLM P+R+S": ("#E31A1C", "-"),
         "LLM P+R+S-anon": ("#FB9A99", "--"),
     }
+    def curve(r: pd.Series) -> tuple[list, np.ndarray]:
+        """Value at the END of each holding week, starting from 1 at the first decision."""
+        idx = list(r.index)
+        x = [idx[0], *idx[1:], idx[-1] + pd.Timedelta(days=7)]
+        return x, np.concatenate([[1.0], (1 + r.fillna(0)).cumprod().to_numpy()])
+
     for name, (c, ls) in styles.items():
         if name in port:
-            w = (1 + port[name].fillna(0)).cumprod()
-            ax.plot(w.index, w.to_numpy(), color=c, ls=ls, lw=1.4, label=name)
-    cash = (1 + rf.fillna(0)).cumprod()
-    ax.plot(cash.index, cash.to_numpy(), color="k", ls=":", lw=1, label="Nakit (TLREF)")
+            x, y = curve(port[name])
+            ax.plot(x, y, color=c, ls=ls, lw=1.4, label=name)
+    x, y = curve(rf)
+    ax.plot(x, y, color="k", ls=":", lw=1, label="Nakit (TLREF)")
     ax.axvline(pd.Timestamp(POST_CUTOFF), color="grey", lw=0.8)
     ax.text(
         pd.Timestamp(POST_CUTOFF),
@@ -675,7 +687,12 @@ def main(argv: list[str] | None = None) -> None:
     if "llm" in a.stages:
         stage_llm(dates, syms, a.yes, state / "decisions.csv")
     if "eval" in a.stages:
-        dec = pd.read_csv(state / "decisions.csv")
+        f = state / "decisions.csv"
+        if f.exists():
+            dec = pd.read_csv(f)
+        else:  # LLM stage not run yet: evaluate the non-LLM strategies only
+            print("[eval] no LLM decisions yet: non-LLM strategies only", flush=True)
+            dec = pd.DataFrame(columns=["date", "symbol", "variant", "karar"])
         out = new_run_dir(
             "e4_backtest",
             {
