@@ -10,8 +10,8 @@ Status: ✅ done · 🔄 running · ⏳ todo. Updated after each experiment.
 | E1 VaR backtest | ✅ done (41 stocks, 73,842 stock-days, 44 min) | `results/e1_var/<ts>/` | `uv run python -m pusula.evaluation.var_backtest` |
 | E2 factor model | ✅ done | `results/e2_factor/<ts>/` | `uv run python -m pusula.evaluation.factor_eval` |
 | E3 PPK event study | ✅ done | `results/e3_event/<ts>/` | `uv run python -m pusula.evaluation.event_study` |
-| E4 decision backtest (LLM, background, resumable) | 🔄 risk ✅ inputs ✅; llm running (2,160 calls, ~1 h); eval + E5 start automatically after it | `results/e4_backtest/<ts>/` | `uv run python -m pusula.evaluation.trading_backtest --yes` (or `--stages llm eval --yes`) |
-| E5 LLM reliability (background, resumable) | ⏳ | `results/e5_llm/<ts>/` | `uv run python -m pusula.evaluation.llm_reliability --yes` |
+| E4 decision backtest (LLM, background, resumable) | 🔄 risk ✅ inputs ✅; llm ⏸ ~330/2,160 done — NIM endpoint throttled then DEGRADED (D-073); a watcher resumes automatically | `results/e4_backtest/<ts>/` | `PUSULA_LLM_RPM=20 PUSULA_LLM_CONCURRENCY=2 uv run python -m pusula.evaluation.trading_backtest --stages llm eval --yes` |
+| E5 LLM reliability (background, resumable) | ⏳ | `results/e5_llm/<ts>/` | `PUSULA_LLM_RPM=20 PUSULA_LLM_CONCURRENCY=2 uv run python -m pusula.evaluation.llm_reliability --yes` |
 | paper_results + docs/RESULTS.md + Backtest page | 🔄 script + page done; RESULTS.md after E1–E5 | `results/`, `docs/RESULTS.md` | `uv run python -m pusula.evaluation.paper_results` |
 | Phase 7: Genel Bakış, demo warmup, README, cleanup | 🔄 pages, warmup, README done; final cleanup pending | | `uv run python -m pusula.demo.warmup` |
 

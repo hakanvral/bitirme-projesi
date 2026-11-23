@@ -203,7 +203,16 @@ def load_yaml(name: str, config_dir: Path | None = None) -> dict[str, Any]:
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    return Settings.model_validate(load_yaml("settings.yaml"))
+    """Settings from ``config/settings.yaml``. The LLM pace can be lowered for long batch runs
+    without editing the file: ``PUSULA_LLM_RPM`` and ``PUSULA_LLM_CONCURRENCY`` (D-073)."""
+    import os
+
+    s = Settings.model_validate(load_yaml("settings.yaml"))
+    if os.environ.get("PUSULA_LLM_RPM"):
+        s.llm.rpm = int(os.environ["PUSULA_LLM_RPM"])
+    if os.environ.get("PUSULA_LLM_CONCURRENCY"):
+        s.llm.max_concurrency = int(os.environ["PUSULA_LLM_CONCURRENCY"])
+    return s
 
 
 @lru_cache(maxsize=1)

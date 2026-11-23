@@ -399,3 +399,15 @@ Same lean task (THYAO, 2026-11-20, P+R+S): Nemotron 3 Ultra **BEKLE** (0.6, both
 ### D-072 · Anonymised mode hides sector-specific limitation texts
 - **Found during E4:** in anonymised inputs the limitation "Elektrik piyasa fiyatı (PTF) verisi yok; bu etki modellenmedi." revealed that the stock is an electricity company. D-060 requires hiding the sub-sector.
 - **Decision:** in anonymised mode, such texts are replaced by neutral wording ("Sektöre özgü bir fiyat verisi yok; …", "PTF (elektrik)" → "Sektöre özgü fiyat"). Test: `test_anonymization_hides_sector_specific_limitations`. All 540 anonymised E4 inputs were scanned: no ticker, company name, sub-sector, year or universe name remains (scenario names such as "Doğalgaz şoku" are the same for every stock and reveal nothing). The E4 LLM stage was restarted after the fix; anonymised answers given to the leaking inputs are not used (different cache key).
+
+### D-073 · Free-tier throttling and outage during E4: lower pace, resumable rounds
+- **What happened (2026-11-23):**
+  - The E4 lean batch ran at the planned ~30 calls/min for about 6 minutes (~250 calls).
+  - It then received mostly HTTP 429 (no `Retry-After` header), falling to ~3–4 calls/min.
+  - Then NIM returned `400 … DEGRADED function cannot be invoked` for the Nemotron 3 Ultra endpoint: an outage on the provider side.
+- **Decision:**
+  - Do not switch models mid-experiment: all E4 variants must use the same model.
+  - The batch pace can be lowered without editing the config, via `PUSULA_LLM_RPM` and `PUSULA_LLM_CONCURRENCY` (E4/E5 resume at 20 RPM, 2 parallel requests).
+  - A watcher probes the endpoint every 5 minutes and resumes the batch when it answers. Finished calls are cached, so nothing is repeated.
+  - Failed items are retried in up to 4 rounds before E4's evaluation runs.
+  - Failed calls never enter the backtest as decisions: a missing decision keeps the previous position (D-070), and the share of failed calls per variant is reported (`e4_failed_calls`).
