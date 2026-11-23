@@ -1013,6 +1013,416 @@ def s10_passthrough() -> list[str]:
     return save_fig(fig, "sekil_10_aktarim_rejimler")
 
 
+# --------------------------------------------------------------------------- E3: Ş11, Ş12, T8
+def _e3() -> Path:
+    run = latest_run("e3_event")
+    if run is None:
+        raise RuntimeError("E3 results missing")
+    return run
+
+
+def s11_e3_scatter() -> list[str]:
+    plt = plt_setup()
+    df = pd.read_csv(_e3() / "e3_stock_events.csv")
+    df = df[(df["direction"] != "hold") & df["pred_total"].notna()]
+    sc = pd.read_csv(_e3() / "e3_scores.csv").set_index(["group", "comparison"])
+    fig, axes = plt.subplots(1, 2, figsize=(7.8, 3.5))
+    for ax, (p, r, title, comp) in zip(
+        axes,
+        (
+            ("pred_total", "mean_adj", "Toplam tepki", "total"),
+            ("pred_abn", "car", "Anormal tepki (CAR)", "abnormal"),
+        ),
+        strict=True,
+    ):
+        g = df[df["universe"] == "BIST30"]
+        ax.scatter(g[p] * 100, g[r] * 100, s=7, alpha=0.45, color=BLUE, label="BIST30", lw=0)
+        e = df[df["universe"] == "Energy"]
+        for sub, col in SUB_COLORS.items():
+            gg = e[e["sub_sector"] == sub]
+            ax.scatter(
+                gg[p] * 100,
+                gg[r] * 100,
+                s=9,
+                alpha=0.7,
+                color=col,
+                marker="s",
+                lw=0,
+                label=f"Enerji: {SUB_TR[sub]}",
+            )
+        ax.axhline(0, color="black", lw=0.7)
+        ax.axvline(0, color="black", lw=0.7)
+        acc = sc.loc[("Tümü", comp)]
+        ax.text(
+            0.02,
+            0.97,
+            f"yön isabeti {tr_num(acc['direction_accuracy'], 2)} "
+            f"[{tr_num(acc['acc_ci_lo'], 2)}; {tr_num(acc['acc_ci_hi'], 2)}]\nOMH {tr_num(acc['mae_pct'], 1)} puan",
+            transform=ax.transAxes,
+            va="top",
+            fontsize=7,
+        )
+        lim = np.nanpercentile(np.abs(df[r]) * 100, 99)
+        ax.set_ylim(-lim, lim)
+        ax.set_title(title, loc="left")
+        ax.set_xlabel("model tahmini, % (karar öncesi veriyle)")
+        from matplotlib.ticker import MaxNLocator
+
+        ax.xaxis.set_major_locator(MaxNLocator(5))
+        fmt_axis(ax, "x", "pct", 1)
+        fmt_axis(ax, "y", "pct", 0)
+    axes[0].set_ylabel("gerçekleşen [−1, +5], %")
+    axes[1].legend(fontsize=6.5, loc="lower right")
+    fig.suptitle(
+        "E3: PPK faiz değişiklikleri, senaryo motoru tahmini ve gerçekleşen tepki (37 karar, 2020–2026)",
+        fontsize=10,
+        x=0.02,
+        ha="left",
+    )
+    fig.text(
+        0.02,
+        -0.02,
+        "Not: eksen ölçekleri farklıdır; tahminler gerçekleşen tepkilerden yaklaşık iki büyüklük mertebesi küçüktür.",
+        fontsize=6.5,
+    )
+    fig.tight_layout()
+    return save_fig(fig, "sekil_11_e3_tahmin_gerceklesen")
+
+
+def s12_e3_car() -> list[str]:
+    plt = plt_setup()
+    ev = pd.read_csv(_e3() / "e3_events.csv")
+    ev = ev[ev["direction"] != "hold"].sort_values("event").reset_index(drop=True)
+    fig, ax = plt.subplots(figsize=(8.4, 3.4))
+    x = np.arange(len(ev))
+    for i, r in ev.iterrows():
+        if r["direction"] == "hike":
+            ax.axvspan(i - 0.5, i + 0.5, color="#F2D7D5", lw=0)
+    ax.bar(x - 0.2, ev["car_BIST30"] * 100, 0.4, color=BLUE, label="BIST30 ort. CAR")
+    ax.bar(x + 0.2, ev["car_Energy"] * 100, 0.4, color=ORANGE, label="Enerji ort. CAR")
+    ax.axhline(0, color="black", lw=0.8)
+    labels = [
+        f"{pd.Timestamp(d):%m.%y} {'+' if b > 0 else '−'}{abs(b):.0f}"
+        for d, b in zip(ev["event"], ev["change_bp"], strict=True)
+    ]
+    ax.set_xticks(x, labels, fontsize=6, rotation=90)
+    ax.set_xlim(-0.6, len(ev) - 0.4)
+    ax.set_ylabel("ortalama CAR [−1, +5]")
+    fmt_axis(ax, "y", "pct", 0)
+    ax.legend(fontsize=7, loc="lower left")
+    ax.set_title(
+        "Faiz değişikliği olan PPK kararları (etiket: ay.yıl ve değişim, baz puan; pembe = artırım)",
+        loc="left",
+        fontsize=8.5,
+    )
+    fig.suptitle(
+        "E3: kararlar etrafında evren ortalaması anormal getiri", fontsize=11, x=0.02, ha="left"
+    )
+    fig.tight_layout()
+    return save_fig(fig, "sekil_12_e3_car_evrenler")
+
+
+def t08_e3_table() -> list[str]:
+    sc = pd.read_csv(_e3() / "e3_scores.csv")
+    grp = {
+        "Tümü": "Tümü",
+        "BIST30": "BIST30",
+        "Energy": "Enerji",
+        "Energy:electricity": "Enerji: elektrik",
+        "Energy:natural_gas": "Enerji: doğalgaz",
+        "Energy:refining_petroleum": "Enerji: rafineri",
+        "Tümü:cut": "İndirimler",
+        "Tümü:hike": "Artırımlar",
+    }
+    out = pd.DataFrame(
+        {
+            "Grup": sc["group"].map(grp),
+            "Karşılaştırma": sc["comparison"].map({"total": "toplam", "abnormal": "anormal (CAR)"}),
+            "Olay": sc["n_events"].astype(str),
+            "Gözlem": sc["n_obs"].astype(str),
+            "Yön isabeti [%95 GA]": sc.apply(
+                lambda r: (
+                    f"{tr_num(r['direction_accuracy'], 2)} [{tr_num(r['acc_ci_lo'], 2)}; {tr_num(r['acc_ci_hi'], 2)}]"
+                ),
+                axis=1,
+            ),
+            "OMH (puan) [%95 GA]": sc.apply(
+                lambda r: (
+                    f"{tr_num(r['mae_pct'], 2)} [{tr_num(r['mae_ci_lo'], 2)}; {tr_num(r['mae_ci_hi'], 2)}]"
+                ),
+                axis=1,
+            ),
+            "Ort. tahmin": sc["mean_pred_pct"].map(lambda v: tr_pct(v / 100, 2)),
+            "Ort. gerçekleşen": sc["mean_real_pct"].map(lambda v: tr_pct(v / 100, 2)),
+        }
+    )
+    return save_tab(
+        out,
+        "tablo_08_e3_olay_calismasi",
+        "Tablo 8. E3: senaryo motoru tahmini ile gerçekleşen [−1, +5] tepkinin karşılaştırılması (faiz değişiklikleri, 2020–2026; olay bazlı bootstrap)",
+    )
+
+
+# --------------------------------------------------------------------------- E4: Ş13, Ş14, T9, T10
+E4_STYLE = {
+    "Al-ve-tut (EW)": ("#444444", "-"),
+    "XU030": ("#999999", "--"),
+    "Kural tabanlı risk filtresi": ("#33A02C", "-"),
+    "LLM P": ("#A6CEE3", "-"),
+    "LLM P+R": ("#1F78B4", "-"),
+    "LLM P+R+S": ("#E31A1C", "-"),
+    "LLM P+R+S-anon": ("#FB9A99", "--"),
+}
+STRAT_TR = {
+    "Al-ve-tut (EW)": "Al ve tut (eşit ağırlık)",
+    "XU030": "XU030",
+    "Kural tabanlı risk filtresi": "Kural tabanlı risk filtresi",
+    "LLM P": "LLM P",
+    "LLM P+R": "LLM P+R",
+    "LLM P+R+S": "LLM P+R+S",
+    "LLM P+R+S-anon": "LLM P+R+S anonim",
+}
+
+
+def _e4_series() -> dict:
+    """Weekly portfolio returns of every strategy that can be evaluated now (only LLM variants
+    with ≥98 % coverage), from the frozen data; no bootstrap."""
+    import tempfile
+
+    from pusula.evaluation import trading_backtest as tb
+    from pusula.evaluation.llm_runner import DECISIONS
+    from pusula.risk.engine import load_inputs
+
+    s = get_settings()
+    st = tb._store(read_only=True)
+    inp = load_inputs(st, AS_OF)
+    dates = tb.decision_dates(inp.sessions, s.project.selection_date)
+    stocks = tb.select_stocks(st, s.project.selection_date)
+    dec = (
+        pd.read_csv(DECISIONS).drop_duplicates(["date", "symbol", "variant"], keep="last")
+        if DECISIONS.exists()
+        else pd.DataFrame(columns=["date", "symbol", "variant", "karar"])
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        res = tb.evaluate(dec, stocks, dates, Path(tmp), s.project.random_seed, with_ci=False)
+        cov = pd.read_csv(Path(tmp) / "e4_coverage.csv")
+    res["coverage"] = cov
+    res["dec"] = dec
+    return res
+
+
+def s13_e4_equity() -> list[str]:
+    plt = plt_setup()
+    res = _e4_series()
+    port, rf = res["port"], res["rf"]
+    fig, (a1, a2) = plt.subplots(
+        2, 1, figsize=(7.8, 5.2), sharex=True, gridspec_kw={"height_ratios": [2.2, 1]}
+    )
+
+    def curve(r):
+        idx = list(r.index)
+        x = [idx[0], *idx[1:], idx[-1] + pd.Timedelta(days=7)]
+        return x, np.concatenate([[1.0], (1 + r.fillna(0)).cumprod().to_numpy()])
+
+    for name, (col, ls) in E4_STYLE.items():
+        if name not in port:
+            continue
+        x, y = curve(port[name])
+        a1.plot(x, y, color=col, ls=ls, lw=1.4, label=STRAT_TR[name])
+        a2.plot(x, y / np.maximum.accumulate(y) - 1, color=col, ls=ls, lw=1.1)
+    x, y = curve(rf)
+    a1.plot(x, y, color="black", ls=":", lw=1, label="Nakit (TLREF)")
+    for ax in (a1, a2):
+        ax.axvline(pd.Timestamp(get_settings().llm.post_cutoff_start), color="grey", lw=0.8)
+    a1.text(
+        pd.Timestamp(get_settings().llm.post_cutoff_start),
+        0.03,
+        " model eğitim kesimi sonrası →",
+        fontsize=7,
+        va="bottom",
+        transform=a1.get_xaxis_transform(),
+    )
+    a1.set_ylabel("portföy değeri (başlangıç = 1, TL)")
+    fmt_axis(a1, "y", "num", 2)
+    a2.set_ylabel("düşüş (zirveden)")
+    fmt_axis(a2, "y", "frac", 0)
+    h, lab = a1.get_legend_handles_labels()
+    fig.legend(h, lab, fontsize=7, ncol=4, loc="lower center", bbox_to_anchor=(0.5, 0.0))
+    n_llm = int(res["coverage"]["evaluated"].sum())
+    note = "" if n_llm else " — LLM varyantları henüz tamamlanmadı"
+    fig.suptitle(
+        f"E4: haftalık karar destek backtest'i, 10 hisse, maliyetler dahil{note}",
+        fontsize=10,
+        x=0.02,
+        ha="left",
+    )
+    fig.tight_layout(rect=(0, 0.06, 1, 1))
+    return save_fig(fig, "sekil_13_e4_birikimli_getiri_dusus")
+
+
+def s14_e4_decisions() -> list[str]:
+    res = _e4_series()
+    cov = res["coverage"]
+    done = list(cov.loc[cov["evaluated"], "variant"])
+    if not done:
+        print("  s14 skipped: no LLM variant has ≥98 % coverage yet")
+        return []
+    plt = plt_setup()
+    dec = res["dec"].dropna(subset=["karar"])
+    dec = dec[dec["variant"].isin(done)]
+    dist = dec.groupby(["variant", "karar"]).size().unstack(fill_value=0)
+    dist = dist.div(dist.sum(axis=1), axis=0).reindex(columns=["AL", "ALMA", "BEKLE"], fill_value=0)
+    fig, ax = plt.subplots(figsize=(6.8, 0.5 * len(dist) + 1.4))
+    left = np.zeros(len(dist))
+    for c, col in zip(["AL", "ALMA", "BEKLE"], ["#33A02C", "#E31A1C", "#999999"], strict=True):
+        ax.barh(
+            [STRAT_TR.get(f"LLM {v}", v) for v in dist.index],
+            dist[c],
+            left=left,
+            color=col,
+            label=c,
+        )
+        for i, v in enumerate(dist[c]):
+            if v > 0.06:
+                ax.text(
+                    left[i] + v / 2,
+                    i,
+                    tr_pct(v, 0),
+                    ha="center",
+                    va="center",
+                    fontsize=7,
+                    color="white",
+                )
+        left += dist[c].to_numpy()
+    ax.axvline(0.7, color="black", ls=":", lw=0.8)
+    fmt_axis(ax, "x", "frac", 0)
+    ax.legend(ncol=3, fontsize=7, loc="lower right")
+    ax.set_title("E4: LLM karar dağılımı (noktalı çizgi: BEKLE %70 eşiği)", loc="left")
+    fig.tight_layout()
+    return save_fig(fig, "sekil_14_e4_karar_dagilimi")
+
+
+def _perf_table(perf: pd.DataFrame) -> pd.DataFrame:
+    win = {"tam": "Tam dönem", "kesim sonrası": "Kesim sonrası"}
+    return pd.DataFrame(
+        {
+            "Dönem": perf["window"].map(win),
+            "Strateji": perf["strategy"].map(lambda v: STRAT_TR.get(v, v)),
+            "Baz": perf["basis"],
+            "Hafta": perf["weeks"].astype(int).astype(str),
+            "Kümülatif getiri": perf["cum_return"].map(lambda v: tr_pct(v, 1)),
+            "Yıllık oynaklık": perf["vol_ann"].map(lambda v: tr_pct(v, 1)),
+            "Sharpe (TLREF)": perf["sharpe"].map(lambda v: tr_num(v, 2)),
+            "Sortino": perf["sortino"].map(lambda v: tr_num(v, 2)),
+            "Azami düşüş": perf["max_drawdown"].map(lambda v: tr_pct(v, 1)),
+            "Calmar": perf["calmar"].map(lambda v: tr_num(v, 2)),
+            "İsabet oranı": perf["hit_rate"].map(lambda v: tr_pct(v, 0)),
+            "Haftalık devir": perf["turnover_weekly"].map(
+                lambda v: tr_num(v, 3) if pd.notna(v) else "–"
+            ),
+        }
+    )
+
+
+def t09_e4_table() -> list[str]:
+    res = _e4_series()
+    perf = res["perf"]
+    perf = perf[~perf["strategy"].str.contains("BEKLE=%50")]
+    files = save_tab(
+        _perf_table(perf),
+        "tablo_09_e4_performans",
+        "Tablo 9. E4: 10 hisselik portföy performansı (03.11.2025 – 20.11.2026; kesim sonrası = 01.06.2026'dan itibaren; "
+        "maliyetler dahil; Sharpe ve Sortino'da risksiz faiz TLREF)",
+    )
+    cov = res["coverage"]
+    cov_tab = pd.DataFrame(
+        {
+            "Varyant": cov["variant"].map(lambda v: STRAT_TR.get(f"LLM {v}", v)),
+            "Karar sayısı": cov.apply(lambda r: f"{r['decisions']} / {r['expected']}", axis=1),
+            "Kapsam": cov["coverage"].map(lambda v: tr_pct(v, 0)),
+            "Değerlendirildi": cov["evaluated"].map({True: "evet", False: "hayır (kapsam < %98)"}),
+        }
+    )
+    files += save_tab(
+        cov_tab, "tablo_09b_e4_llm_kapsam", "Tablo 9b. E4: LLM varyantlarının karar kapsamı"
+    )
+    return files
+
+
+def t10_e4_long() -> list[str]:
+    run = latest_run("e4_backtest")
+    if run is None or not (run / "e4_long_sample_2019_2026.csv").exists():
+        raise RuntimeError("E4 long-sample results missing")
+    ls = pd.read_csv(run / "e4_long_sample_2019_2026.csv").assign(window="tam")
+    t = _perf_table(ls).drop(columns=["Dönem"])
+    ci = pd.read_csv(run / "e4_long_sample_sharpe_ci.csv").iloc[0]
+    cap = (
+        "Tablo 10. E4 referans: LLM'siz stratejiler, 2019 – 20.11.2026 (411 hafta). Sharpe farkı (kural filtresi − al ve tut): "
+        f"{tr_num(ci['sharpe_diff'], 2)} [%95 GA {tr_num(ci['ci_lo'], 2)}; {tr_num(ci['ci_hi'], 2)}], p = {tr_num(ci['p_two_sided'], 2)}"
+    )
+    return save_tab(t, "tablo_10_e4_uzun_orneklem", cap)
+
+
+# --------------------------------------------------------------------------- E5: Ş15
+def s15_e5_agreement() -> list[str]:
+    run = latest_run("e5_llm")
+    if run is None or not (run / "e5_items_decisions.csv").exists():
+        print("  s15 skipped: E5 results do not exist yet")
+        return []
+    plt = plt_setup()
+    from pusula.evaluation.llm_reliability import cohen_kappa
+
+    d = pd.read_csv(run / "e5_items_decisions.csv")
+    raters = [
+        c
+        for c in [
+            "rep0",
+            "rep1",
+            "rep2",
+            "rep3",
+            "rep4",
+            "reasoning_on",
+            "Kimi K3.1 Pro",
+            "Gemma 4 31B",
+        ]
+        if c in d
+    ]
+    names = {
+        "rep0": "Nemotron t1",
+        "rep1": "t2",
+        "rep2": "t3",
+        "rep3": "t4",
+        "rep4": "t5",
+        "reasoning_on": "Nemotron (akıl y. açık)",
+        "Kimi K3.1 Pro": "Kimi K3.1 Pro",
+        "Gemma 4 31B": "Gemma 4 31B",
+    }
+    M = np.full((len(raters), len(raters)), np.nan)
+    for i, a in enumerate(raters):
+        for j, b in enumerate(raters):
+            x = d[[a, b]].dropna()
+            M[i, j] = (x[a] == x[b]).mean() if len(x) else np.nan
+    fig, ax = plt.subplots(figsize=(5.6, 4.8))
+    im = ax.imshow(M, cmap="Greens", vmin=0, vmax=1)
+    for i in range(len(raters)):
+        for j in range(len(raters)):
+            ax.text(j, i, tr_pct(M[i, j], 0), ha="center", va="center", fontsize=7)
+    ax.set_xticks(
+        range(len(raters)), [names[r] for r in raters], rotation=40, ha="right", fontsize=7
+    )
+    ax.set_yticks(range(len(raters)), [names[r] for r in raters], fontsize=7)
+    ax.grid(False)
+    fig.colorbar(im, ax=ax, shrink=0.7, label="aynı karar oranı")
+    k = cohen_kappa(d["rep0"], d["reasoning_on"]) if "reasoning_on" in d else np.nan
+    ax.set_title(
+        f"E5: karar uyumu ({len(d)} hisse-hafta); Cohen κ (akıl yürütme açık/kapalı) = {tr_num(k, 2)}",
+        fontsize=8.5,
+        loc="left",
+    )
+    fig.tight_layout()
+    return save_fig(fig, "sekil_15_e5_uyum_matrisi")
+
+
 ITEMS = {
     "s02": s02_macro,
     "s03": s03_fan,
@@ -1030,6 +1440,14 @@ ITEMS = {
     "t07": t07_e2_subsector,
     "s09": s09_scenarios,
     "s10": s10_passthrough,
+    "s11": s11_e3_scatter,
+    "s12": s12_e3_car,
+    "t08": t08_e3_table,
+    "s13": s13_e4_equity,
+    "s14": s14_e4_decisions,
+    "t09": t09_e4_table,
+    "t10": t10_e4_long,
+    "s15": s15_e5_agreement,
 }
 
 
