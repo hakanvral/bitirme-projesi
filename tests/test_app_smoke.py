@@ -52,3 +52,14 @@ def test_agent_pages_render_without_llm_calls(page):
     at = AppTest.from_file(str(PAGES / page), default_timeout=120).run()
     assert not at.exception
     assert t("disclaimer") in _all_text(at)
+
+
+def test_pages_show_a_hint_instead_of_failing_on_an_empty_database(tmp_path, monkeypatch):
+    """Fresh clone: no prices yet -> a Turkish hint, no exception."""
+    from pusula.app.components import data_access
+
+    monkeypatch.setattr(data_access, "_latest_session", lambda: None)
+    at = AppTest.from_file(str(PAGES / "ana_sayfa.py"), default_timeout=30)
+    at.run()
+    assert not at.exception
+    assert any("frozen-rebuild" in w.value for w in at.warning)

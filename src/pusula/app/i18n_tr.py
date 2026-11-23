@@ -383,6 +383,12 @@ TR: dict[str, str] = {
     "ds_flags_header": "Manuel inceleme gerektiren fiyat sıçramaları (hisse ±%10,5, endeks ±%10)",
     "ds_no_flags": "İşaretlenmiş sıçrama yok.",
     "ds_update_button": "Verileri güncelle",
+    "db_empty": (
+        "Veritabanında henüz fiyat verisi yok. Proje klasöründe sırayla şu komutları "
+        "çalıştırın, sonra sayfayı yenileyin:\n\n"
+        "`uv run python -m pusula.data.update --frozen-rebuild`\n\n"
+        "`uv run python -m pusula.risk.run_universe --as-of 2026-11-20`"
+    ),
     "ds_freeze": (
         "Veri dondurma açık: makale {d} tarihli veriyi kullanıyor ve LLM deneyleri (E4, E5) "
         "sürüyor. Deneyler bitene kadar veri güncellemesi kapalıdır."

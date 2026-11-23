@@ -18,9 +18,23 @@ def store() -> Store:
 
 
 @st.cache_data(ttl=600)
-def latest_session() -> date:
+def _latest_session() -> date | None:
     d = store().query("SELECT max(date) AS d FROM prices WHERE ticker = 'XU100.IS'")["d"].iloc[0]
-    return pd.Timestamp(d).date()
+    return None if pd.isna(d) else pd.Timestamp(d).date()
+
+
+def latest_session() -> date:
+    """Last market date in the database. With an empty database (fresh clone) the page shows
+    what to run instead of failing."""
+    d = _latest_session()
+    if d is None:
+        from pusula.app.components.layout import disclaimer_footer
+        from pusula.app.i18n_tr import t
+
+        st.warning(t("db_empty"))
+        disclaimer_footer()
+        st.stop()
+    return d
 
 
 @st.cache_data(ttl=600)
