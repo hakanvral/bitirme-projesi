@@ -111,3 +111,59 @@ def test_kappa_values():
     assert cohen_kappa(same["a"], same["b"]) == pytest.approx(1.0)
     opp = pd.DataFrame({"a": ["AL", "ALMA"] * 10, "b": ["ALMA", "AL"] * 10})
     assert fleiss_kappa(opp) < 0
+
+
+# ----------------------------------------------------------------------------- paced runner (D-074)
+def test_pacer_halves_on_trouble_and_ramps_up_after_a_stable_period():
+    from pusula.evaluation.llm_runner import AdaptivePacer, is_transient
+
+    t = {"now": 0.0}
+    waits = []
+    p = AdaptivePacer(start=10, stable_calls=3, stable_s=60, sleep=waits.append,
+                      clock=lambda: t["now"])  # fmt: skip
+    p.trouble(RuntimeError("HTTP 429 after 1 attempts"))
+    assert p.rpm == 5 and waits[-1] == 60
+    p.trouble(RuntimeError("HTTP 400: DEGRADED function cannot be invoked"))
+    assert p.rpm == 2.5 and waits[-1] == 120  # backoff doubles
+    t["now"] = 100.0
+    for _ in range(3):
+        p.success()
+    assert p.rpm == 4.5  # +2 after 3 successes and 60 s at this pace
+    assert is_transient(RuntimeError("HTTP 429 after 1 attempts"))
+    assert not is_transient(RuntimeError("invalid JSON after 3 attempts"))
+
+
+def test_paced_retries_transient_errors_on_the_same_item():
+    from pusula.evaluation.llm_runner import AdaptivePacer, paced
+    from pusula.llm.base import CallRecord
+
+    calls = {"n": 0}
+
+    def fn():
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise RuntimeError("HTTP 429 after 1 attempts")
+        return "ok", CallRecord("id", "p", "m", "a", "v", cached=True)
+
+    p = AdaptivePacer(sleep=lambda s: None)
+    assert paced(fn, p)[0] == "ok" and calls["n"] == 3
+
+
+def test_cache_save_and_restore_merge(tmp_path, monkeypatch):
+    from pusula.evaluation import llm_runner as lr
+    from pusula.llm.cache import ResponseCache
+
+    src = tmp_path / "cache.sqlite"
+    ResponseCache(src).put("k1", {"data": {"a": 1}, "input_tokens": 1, "output_tokens": 1})
+    monkeypatch.setattr(lr, "STATE_DIR", tmp_path / "state")
+    monkeypatch.setattr(lr, "CACHE_GZ", tmp_path / "state" / "c.gz")
+
+    class _S:
+        class llm:
+            cache_path = src
+
+    monkeypatch.setattr(lr, "get_settings", lambda: _S)
+    lr.save_cache()
+    _S.llm.cache_path = tmp_path / "fresh" / "cache.sqlite"
+    assert lr.restore_cache() == 1
+    assert ResponseCache(_S.llm.cache_path).get("k1")["data"] == {"a": 1}

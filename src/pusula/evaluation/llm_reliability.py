@@ -1,15 +1,17 @@
 """E5 · LLM reliability (CLAUDE.md §6.5, D-071).
 
-Sample: 20 stock-weeks drawn (seeded) from the E4 inputs (P+R+S variant, lean prompt).
+Sample (reduced, D-074): 10 stock-weeks drawn (seeded) from the E4 inputs (P+R+S variant, lean
+prompt); they are the first 10 items of the original 20-item draw.
 
 * **Repeatability**: k = 5 repeated lean calls per stock-week with the production settings
   (temperature 0.2, reasoning off). Repeats bypass the response cache with a ``#rep<k>`` suffix
   on the prompt version (the prompt itself is unchanged). Agreement = Fleiss' κ.
-* **Cross-model**: the same 20 inputs, lean prompt, with Nemotron 3 Ultra (reasoning off),
+* **Cross-model**: the same 10 inputs, lean prompt, with Nemotron 3 Ultra (reasoning off),
   Kimi K3.1 Pro and Gemma 4 31B (provider defaults). Pairwise agreement and Fleiss' κ.
 * **Reasoning on vs off** (Nemotron): agreement and Cohen's κ.
 * **Decision distribution per model** (is there a BEKLE bias?).
-* **Full-mode audit**: 6 full analyses (3 BIST30, 3 Energy) on the latest data date: numeric
+* **Full-mode audit**: 4 full analyses (THYAO, AKBNK; ENJSA, TUPRS = the demo warm-up runs) on
+  the latest data date: numeric
   faithfulness of the final reports, consistency result and regeneration rate. These runs also
   warm the cache for the demo (``pusula.demo.warmup``).
 * **Overall**: JSON failure rate and latency distribution per agent and mode from ``llm_usage``.
@@ -35,9 +37,10 @@ from pusula.evaluation.trading_backtest import inputs_dir, variant_input
 from pusula.logging_setup import setup_logging
 
 CATS = ["AL", "ALMA", "BEKLE"]
-N_ITEMS, K_REPEATS = 20, 5
+N_ITEMS, K_REPEATS = 10, 5  # reduced E5 (D-074); the 10 items are the first 10 of the
+SAMPLE_DRAW = 20  # original 20-item draw, so answers cached for that draw stay usable
 OTHER_MODELS = {"Kimi K3.1 Pro": "moonshotai/kimi-k3.1-pro", "Gemma 4 31B": "google/gemma-4-31b-it"}
-FULL_SET = {"BIST30": ["THYAO", "AKBNK", "GARAN"], "Energy": ["ENJSA", "TUPRS", "AKSEN"]}
+FULL_SET = {"BIST30": ["THYAO", "AKBNK"], "Energy": ["ENJSA", "TUPRS"]}  # = demo warm-up set
 
 
 # --------------------------------------------------------------------------- agreement
@@ -64,7 +67,7 @@ def cohen_kappa(a: pd.Series, b: pd.Series, cats=CATS) -> float:
 
 
 # --------------------------------------------------------------------------- clients
-def client_for(model: str, reasoning_off: bool):
+def client_for(model: str, reasoning_off: bool, max_backoff_retries: int | None = None):
     from pusula.llm.factory import _api_key, shared_cache, shared_limiter
     from pusula.llm.openai_compat import OpenAICompatibleClient
 
@@ -79,7 +82,9 @@ def client_for(model: str, reasoning_off: bool):
         limiter=shared_limiter(),
         timeout_s=max(cfg.timeout_s, 300),
         json_mode=cfg.json_mode,
-        max_backoff_retries=cfg.max_backoff_retries,
+        max_backoff_retries=(
+            cfg.max_backoff_retries if max_backoff_retries is None else max_backoff_retries
+        ),
         extra_body=extra,
         cache=shared_cache(),
         max_json_retries=cfg.max_json_retries,
@@ -111,17 +116,23 @@ def sample_items(seed: int) -> list[tuple[str, str, dict]]:
     if len(pool) < N_ITEMS:
         raise RuntimeError("E4 inputs missing: run the E4 'inputs' stage first")
     rng = np.random.default_rng(seed)
-    pick = rng.choice(len(pool), size=N_ITEMS, replace=False)
+    pick = rng.choice(len(pool), size=SAMPLE_DRAW, replace=False)[:N_ITEMS]
     return [pool[i] for i in sorted(pick)]
 
 
 # --------------------------------------------------------------------------- main parts
-def run_calls(items, yes: bool) -> pd.DataFrame:
+def run_calls(items, yes: bool, executor=None, max_backoff_retries=None) -> pd.DataFrame:
+    """``executor(list_of_thunks) -> list of results/exceptions``; default: the parallel batch
+    runner. The paced runner (``llm_runner``) passes a sequential, adaptive executor."""
     cfg = get_settings().llm
     jobs = []  # (label, rater, client, inp, suffix)
-    nemo_off = client_for(cfg.model, reasoning_off=True)
-    nemo_on = client_for(cfg.model, reasoning_off=False)
-    others = {name: client_for(m, reasoning_off=False) for name, m in OTHER_MODELS.items()}
+    mb = max_backoff_retries
+    nemo_off = client_for(cfg.model, reasoning_off=True, max_backoff_retries=mb)
+    nemo_on = client_for(cfg.model, reasoning_off=False, max_backoff_retries=mb)
+    others = {
+        name: client_for(m, reasoning_off=False, max_backoff_retries=mb)
+        for name, m in OTHER_MODELS.items()
+    }
     for i, (_, _, inp) in enumerate(items):
         for k in range(K_REPEATS):
             jobs.append((i, f"rep{k}", nemo_off, inp, "" if k == 0 else f"#rep{k}"))
@@ -138,10 +149,8 @@ def run_calls(items, yes: bool) -> pd.DataFrame:
     if not yes and input("Continue? [y/N] ").strip().lower() != "y":
         raise SystemExit("aborted")
     t0 = time.perf_counter()
-    res = run_batch(
-        [(lambda c=c, inp=inp, sfx=sfx: lean_call(c, inp, sfx)) for _, _, c, inp, sfx in jobs],
-        cfg.max_concurrency,
-    )
+    thunks = [(lambda c=c, inp=inp, sfx=sfx: lean_call(c, inp, sfx)) for _, _, c, inp, sfx in jobs]
+    res = executor(thunks) if executor else run_batch(thunks, cfg.max_concurrency)
     rows, recs = [], []
     for (i, rater, c, _, _), r in zip(jobs, res, strict=True):
         if isinstance(r, Exception):
@@ -325,10 +334,10 @@ def plot_dist(dist: pd.DataFrame, out) -> list[str]:
     return save_fig(fig, out, "e5_decision_distribution")
 
 
-def main(argv: list[str] | None = None) -> None:
+def main(argv: list[str] | None = None, executor=None, max_backoff_retries=None) -> str:
     ap = argparse.ArgumentParser(description="E5 LLM reliability (resumable via the cache)")
     ap.add_argument("--yes", action="store_true")
-    ap.add_argument("--skip-full", action="store_true", help="skip the 6 full-mode analyses")
+    ap.add_argument("--skip-full", action="store_true", help="skip the full-mode analyses")
     a = ap.parse_args(argv)
     setup_logging("WARNING")
     s = get_settings()
@@ -344,7 +353,7 @@ def main(argv: list[str] | None = None) -> None:
             "temperature": s.llm.temperature,
         },
     )
-    calls = run_calls(items, a.yes)
+    calls = run_calls(items, a.yes, executor, max_backoff_retries)
     calls.to_csv(out / "e5_calls.csv", index=False)
     res = analyse(calls, items, out)
     print(json.dumps(res, indent=1), flush=True)
@@ -356,7 +365,7 @@ def main(argv: list[str] | None = None) -> None:
             out,
             "e5_full_mode_audit",
             "{:.3f}",
-            caption="E5: auditor faithfulness and regeneration, 6 full analyses",
+            caption="E5: auditor faithfulness and regeneration, 4 full analyses",
         )
     save_table(
         usage_stats(store),
@@ -367,6 +376,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     mark_latest(out)
     print(out)
+    return str(out)
 
 
 if __name__ == "__main__":
