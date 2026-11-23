@@ -1400,6 +1400,9 @@ def s15_e5_agreement() -> list[str]:
     M = np.full((len(raters), len(raters)), np.nan)
     for i, a in enumerate(raters):
         for j, b in enumerate(raters):
+            if a == b:  # a rater always agrees with itself
+                M[i, j] = 1.0
+                continue
             x = d[[a, b]].dropna()
             M[i, j] = (x[a] == x[b]).mean() if len(x) else np.nan
     fig, ax = plt.subplots(figsize=(5.6, 4.8))
@@ -1412,7 +1415,8 @@ def s15_e5_agreement() -> list[str]:
     )
     ax.set_yticks(range(len(raters)), [names[r] for r in raters], fontsize=7)
     ax.grid(False)
-    fig.colorbar(im, ax=ax, shrink=0.7, label="aynı karar oranı")
+    cb = fig.colorbar(im, ax=ax, shrink=0.7, label="aynı karar oranı")
+    fmt_axis(cb.ax, "y", "frac", 0)
     k = cohen_kappa(d["rep0"], d["reasoning_on"]) if "reasoning_on" in d else np.nan
     ax.set_title(
         f"E5: karar uyumu ({len(d)} hisse-hafta); Cohen κ (akıl yürütme açık/kapalı) = {tr_num(k, 2)}",

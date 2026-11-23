@@ -215,21 +215,59 @@ Decision distribution:
 - **Ablation P → P+R+S:** with price/trend only, the model mostly said BEKLE (77 %, above the 70 % flag) and, once in, stayed long (invested 53 % of the time; +29.5 %, max DD −12.4 %). Adding the risk and scenario blocks changed the answer from "wait" to "do not buy" (ALMA 8 % → 52 %): it was invested 22 % of the time, with a better Sharpe (−0.41 vs −0.69) and a much smaller drawdown (−1.9 % vs −12.4 %).
 - **None of the Sharpe differences is statistically significant**: the 95 % intervals are wide and include zero (52 weeks, L-17). P vs buy & hold comes closest (p = 0.08). Much of the P+R+S result comes from staying out of the market in a high-rate year, not from picking winners. P+R separates the risk effect from the scenario effect, and the anonymised variant tests memorisation.
 
-## E5 · LLM reliability
+## E5 · LLM reliability (reduced, D-074; finished 2026-11-23 21:40 UTC)
 
-*Pending: needs the Nemotron 3 Ultra endpoint (D-073).* The code, design and tests are in place (`src/pusula/evaluation/llm_reliability.py`, D-071):
-- k = 5 repeats on 20 stock-weeks, Fleiss' κ;
-- Nemotron vs Kimi K3.1 Pro vs Gemma 4 31B;
-- reasoning on vs off;
-- decision distribution per model;
-- 6 full-mode audits;
-- JSON failure rate and latency.
+Design:
+- 10 stock-weeks from the E4 inputs (P+R+S, lean prompt);
+- Nemotron 3 Ultra repeated 5× at the production temperature (0.2, reasoning off; repeats 2–5 bypass the cache);
+- the same 10 inputs for Kimi K3.1 Pro, Gemma 4 31B and Nemotron with reasoning on;
+- 4 full analyses (THYAO, AKBNK; ENJSA, TUPRS) on the freeze date.
 
-Evidence so far from P4 and Step 0 (full mode, 4 runs): the numeric audit passed in every final report, and the v3 prompts needed no regeneration (THYAO 165 numbers, ENJSA 213). Lean calls took ~2 s with reasoning off. Command:
+80 lean calls, 0 failures.
 
-```bash
-PUSULA_LLM_RPM=20 PUSULA_LLM_CONCURRENCY=2 uv run python -m pusula.evaluation.llm_reliability --yes
-```
+| Measure | Value |
+|---|---|
+| Repeatability, Fleiss' κ (5 Nemotron repeats) | **1.00** (all 10 stock-weeks unanimous) |
+| Cross-model Fleiss' κ (Nemotron, Kimi, Gemma) | 0.22 |
+| Nemotron vs Gemma: agreement / Cohen's κ | 80 % / 0.67 |
+| Nemotron vs Kimi | 30 % / −0.19 |
+| Kimi vs Gemma | 50 % / 0.21 |
+| Nemotron reasoning off vs on | 70 % / 0.41 |
+
+Decision distribution on the same 10 stock-weeks:
+
+| Model | AL | ALMA | BEKLE |
+|---|---|---|---|
+| Nemotron 3 Ultra (reasoning off) | 10 % | 30 % | 60 % |
+| Nemotron 3 Ultra (reasoning on) | 10 % | 20 % | 70 % |
+| Kimi K3.1 Pro | 20 % | 30 % | 50 % |
+| Gemma 4 31B | 10 % | 50 % | 40 % |
+
+**Full-mode audit (4 analyses):**
+
+| Stock | Decision (confidence) | Numbers checked | Not found in input (final) | Consistency | Regenerations (numeric / consistency) |
+|---|---|---|---|---|---|
+| THYAO | BEKLE (0.55) | 191 | 0 | OK | 0 / 2 |
+| AKBNK | BEKLE (0.35) | 212 | 0 | OK | 2 / 4 |
+| ENJSA | BEKLE (0.45) | 121 | 0 | OK | 0 / 0 |
+| TUPRS | BEKLE (0.40) | 176 | 0 | OK | 0 / 0 |
+
+- **Audit totals:** 700 numbers, 100 % faithful after the audit. 2 of 4 analyses needed regeneration (THYAO and AKBNK); 1 needed a numeric fix (AKBNK).
+- **Latency:**
+  - lean call, reasoning off: median 2.9 s;
+  - lean call, reasoning on: median 24.8 s;
+  - Gemma: median 107 s (free-tier queue);
+  - Kimi: all 10 answers came from the cache of the earlier pre-run (latency ~94 s in D-055);
+  - full analysis: 5.5–10 min.
+- **JSON failure rate** (all logged calls): 0 % for the 985 lean calls; 19 % of auditor and 7 % of scenario-analyst attempts needed a retry, and all succeeded.
+
+**In plain words:**
+- **Nemotron is fully repeatable** at the production settings: the same input gave the same decision 5 times out of 5 for all 10 stock-weeks. Run-to-run randomness does not drive the E4 results.
+- **Different models disagree a lot** (κ = 0.22). Gemma agrees with Nemotron on 8 of 10 cases, Kimi on only 3. Switching on hidden reasoning changes the decision in 3 of 10 cases and pushes towards BEKLE. The decision therefore depends on the model choice, which is why all E4 variants use one model (D-075) and why the paper should report E4 as "this model's" behaviour.
+- **The auditor works as intended:** every number in the final reports exists in the input. In half of the full analyses the consistency check found a real issue and the named reports were regenerated (D-063).
+- Every model chose BEKLE or ALMA in most cases; none shows an AL bias.
+
+Figures: `results/paper/figures_tr/sekil_15_e5_uyum_matrisi` (agreement matrix); table `tablo_11_ajan_karar_karsilastirmasi` (four full analyses).
 
 ---
 
