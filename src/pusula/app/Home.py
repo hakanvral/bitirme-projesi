@@ -25,6 +25,7 @@ for fname, key, icon in (
     ("senaryo.py", "nav_scenario", "🧪"),
     ("karsilastirma.py", "nav_compare", "⚖️"),
     ("ajan_karari.py", "nav_agent", "🤖"),
+    ("degerlendirme.py", "nav_eval", "📊"),
     ("ayarlar.py", "nav_settings", "⚙️"),
 ):
     if (PAGES_DIR / fname).exists():

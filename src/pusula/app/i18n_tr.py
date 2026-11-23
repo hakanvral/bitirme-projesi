@@ -11,7 +11,7 @@ TR: dict[str, str] = {
     "app_subtitle": "Borsa İstanbul için makro koşullu, ajan tabanlı risk analizi platformu",
     "disclaimer": "Bu uygulama akademik bir çalışmadır; yatırım tavsiyesi değildir.",
     # --- navigation
-    "nav_home": "Ana Sayfa",
+    "nav_home": "Genel Bakış",
     "nav_data_status": "Veri Durumu",
     # --- navigation (P2/P3)
     "nav_risk": "Hisse Risk Analizi",
@@ -278,8 +278,97 @@ TR: dict[str, str] = {
     "home_universes": "Evrenler: **BIST30** ve kurala dayalı seçilmiş **10 enerji hissesi**.",
     "home_status_header": "Proje durumu",
     "home_status_body": (
-        "Sayfalar proje aşamaları ilerledikçe eklenecektir. Şu an mevcut: **Veri Durumu**."
+        "Tüm sayfalar hazır: Genel Bakış, Hisse Risk Analizi, Senaryo Laboratuvarı, "
+        "BIST30 vs Enerji, Ajan Kararı, Backtest & Değerlendirme, Veri Durumu ve Ayarlar."
     ),
+    # --- evaluation viewer (Backtest & Değerlendirme, P5–P6)
+    "nav_eval": "Backtest & Değerlendirme",
+    "ev_intro": (
+        "Makaledeki deneylerin (E1–E5) sonuçları. Sayfa yalnızca `results/` klasöründeki en son "
+        "çalıştırmayı okur; deney başlatmaz ve LLM çağrısı yapmaz."
+    ),
+    "ev_tab_e1": "E1 · Risk modeli (VaR)",
+    "ev_tab_e2": "E2 · Faktör modeli",
+    "ev_tab_e3": "E3 · PPK olay çalışması",
+    "ev_tab_e4": "E4 · Karar backtest'i",
+    "ev_tab_e5": "E5 · LLM güvenilirliği",
+    "ev_run": "Çalıştırma: {run} · klasör: `{path}`",
+    "ev_not_run": "Bu deney henüz çalıştırılmadı. Komut: `{cmd}`",
+    "ev_missing_file": "Dosya bulunamadı: {f}",
+    "ev_more": "Ayrıntılı tablolar",
+    "ev_level": "VaR güven düzeyi",
+    "ev_group": "Grup",
+    "ev_window": "Dönem",
+    "ev_cmd_e1_var": "uv run python -m pusula.evaluation.var_backtest",
+    "ev_cmd_e2_factor": "uv run python -m pusula.evaluation.factor_eval",
+    "ev_cmd_e3_event": "uv run python -m pusula.evaluation.event_study",
+    "ev_cmd_e4_backtest": "uv run python -m pusula.evaluation.trading_backtest",
+    "ev_cmd_e5_llm": "uv run python -m pusula.evaluation.llm_reliability",
+    "ev_e1_text": (
+        "Her hisse için 2019'dan bugüne her gün 1 günlük VaR tahmini yapıldı (modeller 5 işlem "
+        "gününde bir yeniden kalibre edildi). İyi bir VaR %99 modelinde kayıp, tahmini yaklaşık "
+        "100 günde 1 aşmalıdır. **Kupiec** testi aşım sayısını, **Christoffersen** testi aşımların "
+        "kümelenip kümelenmediğini sınar. Tablolarda: aşım oranı, testi reddeden hisse payı ve "
+        "kuantil kaybı (düşük = daha iyi)."
+    ),
+    "ev_e1_critic": "Ana soru: hold-out kritik, örneklem içi kritiği ve sade HS'yi geçiyor mu?",
+    "ev_e1_selection": "Kritiklerin model seçim payları",
+    "ev_e1_regime": "Rejimlere göre sonuçlar",
+    "ev_e2_text": (
+        "Makro faktör modelinin açıklama gücü: örneklem içi R² ve 2 yıl ile kurulup sonraki 26 "
+        "haftada sınanan örneklem dışı R². Faktör duyarlılıkları, 1 standart sapmalık haftalık "
+        "harekete yüzde tepki olarak gösterilir. BIST30 ve Enerji, örtüşen hisse (TUPRS) dahil ve "
+        "hariç karşılaştırılır."
+    ),
+    "ev_e3_text": (
+        "2018'den bu yana PPK faiz kararları: karar gününün etrafındaki [−1, +5] işlem "
+        "günü penceresinde gerçekleşen tepki ile senaryo motorunun yalnızca karar öncesi "
+        "veriyle yaptığı tahmin karşılaştırılır (yön isabeti ve ortalama mutlak hata, "
+        "olay bazlı bootstrap güven aralıklarıyla). Örneklem küçüktür; sonuçlar temkinli "
+        "yorumlanmalıdır."
+    ),
+    "ev_e4_text": (
+        "10 hisse (5 BIST30 + 5 Enerji) için haftalık karar: cuma kapanışında karar, sonraki hafta "
+        "boyunca pozisyon; işlem maliyeti 10 bp + kayma 5 bp; nakit TLREF getirir. "
+        "LLM varyantları: P (yalnız fiyat/trend), P+R (+ risk), P+R+S (+ senaryolar), "
+        "P+R+S anonim. 'Kesim sonrası' dönem, modelin eğitim verisi kesim tarihinden "
+        "sonraki haftalardır."
+    ),
+    "ev_e4_ci": "Sharpe farkları için durağan bootstrap %95 güven aralıkları (TRY)",
+    "ev_e4_dist": "Karar dağılımı (BEKLE payı %70'i aşarsa işaretlenir)",
+    "ev_e5_text": (
+        "Aynı girdiye tekrar tekrar sorulduğunda modelin kararı ne kadar tutarlı (Fleiss κ)? "
+        "Farklı modeller ve akıl yürütme açık/kapalı aynı kararı veriyor mu? Tam modda denetçinin "
+        "sayısal doğruluk oranı ve rapor yeniden üretme sıklığı."
+    ),
+    "ev_e5_full": "Tam mod: denetçi sonuçları (6 analiz)",
+    # --- overview (Genel Bakış, P7)
+    "ov_macro": "Makro görünüm",
+    "ov_policy": "Politika faizi (1 hafta repo)",
+    "ov_tlref": "TLREF",
+    "ov_usdtry": "USD/TRY",
+    "ov_cpi": "Yıllık TÜFE enflasyonu",
+    "ov_brent": "Brent petrol",
+    "ov_ttf": "TTF doğalgaz",
+    "ov_cds": "Türkiye 5Y CDS",
+    "ov_xu100": "BIST 100 (XU100)",
+    "ov_as_of": "Son veri: {d}",
+    "ov_delta_note": (
+        "Değişimler yaklaşık bir hafta öncesine göredir (faiz ve CDS: puan / baz puan farkı; "
+        "diğerleri: yüzde değişim). Enflasyon yalnızca yayımlanmış TÜFE verisinden hesaplanır."
+    ),
+    "ov_heatmap": "Risk ısı haritası (evren içi göreli risk düzeyi)",
+    "ov_heatmap_note": (
+        "Risk hesaplama tarihi: {d} · nominal TRY · renk = risk skoru (oynaklık ve CVaR "
+        "yüzdeliklerinin ortalaması; 0 = evrenin en düşük riskli hissesi, 100 = en yüksek)."
+    ),
+    "ov_hover": (
+        "{n}: {lvl}<br>Risk skoru: {s:.1f}<br>Yıllık oynaklık: %{v:.1f}<br>"
+        "CVaR %99 (1 gün): %{c:.2f}<br>Seçilen model: {m}"
+    ),
+    "ov_score": "Risk skoru",
+    "ov_overlap_note": "TUPRS hem BIST30 hem Enerji evrenindedir; iki panelde de gösterilir.",
+    "ov_about": "PUSULA nedir?",
     # --- data status page
     "ds_title": "Veri Durumu",
     "ds_no_db": (
@@ -329,3 +418,50 @@ TR: dict[str, str] = {
 def t(key: str) -> str:
     """Return the Turkish string for ``key`` (the key itself if missing, so gaps are visible)."""
     return TR.get(key, key)
+
+
+# Column labels of the result tables shown on the evaluation page (files keep English names).
+EVAL_COLUMNS: dict[str, str] = {
+    "group": "Grup",
+    "model": "Model",
+    "level": "Düzey",
+    "n_days": "Gün",
+    "n_stocks": "Hisse",
+    "exceed_rate": "Aşım oranı",
+    "pooled_kupiec_p": "Kupiec p (havuz)",
+    "share_reject_pof": "POF red payı",
+    "share_reject_ind": "Bağımsızlık red payı",
+    "share_reject_cc": "Koşullu kapsama red payı",
+    "tick_loss_x1e4": "Kuantil kaybı (×10⁴)",
+    "comparison": "Karşılaştırma",
+    "holdout_lower_tick_loss": "Hold-out daha iyi (hisse)",
+    "sign_test_p": "İşaret testi p",
+    "holdout_closer_coverage": "Hold-out kapsama daha yakın (hisse)",
+    "strategy": "Strateji",
+    "cum_return": "Kümülatif getiri",
+    "cagr": "Yıllık bileşik getiri",
+    "vol_ann": "Yıllık oynaklık",
+    "sharpe": "Sharpe",
+    "sortino": "Sortino",
+    "max_drawdown": "Azami düşüş",
+    "calmar": "Calmar",
+    "hit_rate": "İsabet oranı",
+    "turnover_weekly": "Haftalık devir",
+    "avg_position": "Ort. pozisyon",
+    "direction_accuracy": "Yön isabeti",
+    "acc_ci_lo": "İsabet GA alt",
+    "acc_ci_hi": "İsabet GA üst",
+    "mae_pct": "OMH (%)",
+    "mae_ci_lo": "OMH GA alt",
+    "mae_ci_hi": "OMH GA üst",
+    "n_events": "Olay",
+    "n_obs": "Gözlem",
+    "sharpe_diff": "Sharpe farkı",
+    "ci_lo": "GA alt",
+    "ci_hi": "GA üst",
+    "p_two_sided": "p (çift yönlü)",
+    "metric": "Ölçüt",
+    "value": "Değer",
+    "agreement": "Uyum",
+    "cohen_kappa": "Cohen κ",
+}

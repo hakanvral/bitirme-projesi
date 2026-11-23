@@ -312,3 +312,86 @@ Same lean task (THYAO, 2026-11-20, P+R+S): Nemotron 3 Ultra **BEKLE** (0.6, both
 
 ### D-064 · Prompt v2: Turkish characters and metric wording
 - **Decision:** the shared rules require correct Turkish characters (one v1 scenario report was written in ASCII Turkish) and an exact description of metrics (simulated values are forecasts, a "medyan" is a median, shocks are quoted in their own units, e.g. "+200 baz puan", not "%200"). All prompt versions were bumped to v2 (auditor v3), and old cached answers are not reused.
+
+## Phases 5–7 (2026-11-23)
+
+### D-065 · Prompt v3 and context-aware numeric audit
+- **Decision:** prompt v3 (auditor v4).
+  - Shared rules 8–10:
+    - exact glossary wording: VaR %99 (1 gün) = "100 günün 1'inde aşılabilecek kayıp eşiği", never "en kötü günlük kayıp";
+    - factor sensitivities = "1 standart sapmalık haftalık harekete yüzde tepki", "beta" only for XU100;
+    - no new numeric thresholds;
+    - a final Turkish spelling and diacritics self-check.
+  - The judge must write `temel_riskler` as short sentences, enforced by a schema validator (at least 3 words each).
+  - The auditor also checks metric wording and new thresholds.
+- **Numeric audit:** a number now matches only with a compatible **unit**:
+  - percent ↔ percent field / percentage points / fraction;
+  - bp ↔ bp / pp;
+  - counts (`*_sayisi`) only as bare numbers.
+- **Numbers inside input strings** (scenario names such as "Petrol çöküşü (Brent −%30)") match only when three conditions hold:
+  - the report mentions their context (a keyword of the string within ±70 characters);
+  - the signs agree;
+  - an unsigned number is not described with the opposite direction verb ("%30 artarsa" for a −%30 shock).
+  - Test: `test_numbers_are_matched_with_their_unit_and_context`.
+- **Input change:** the trend block now has `rsi14_bolgesi` (aşırı alım / nötr / aşırı satım) and `rsi_esikleri` (70 / 30, Wilder's conventional bands). The stricter check flagged "RSI 70" in the v2 THYAO reports as a number not in the input; it is now traceable.
+- **Input change:** the key `asiri_sok_tum_orneklem_kullanildi` was renamed to `tum_orneklem_kovaryansi_kullanildi` because the model copied the ASCII key into its text ("aşırı sok").
+- **Before / after:** `docs/prompt_v3_before_after.md`.
+
+### D-066 · E1 design: rolling 1-day VaR backtest
+- **Decision:**
+  - every stock, nominal TRY, forecasts from 2019-01-02;
+  - refit every 5 trading days on the last 500 returns (at least 250), applied to the next 5 days;
+  - FHS and GARCH-t keep the refit parameters and update tomorrow's variance daily with the realised return ("filter daily, re-estimate weekly"; only past data);
+  - 1-day VaR from **exact quantiles, no Monte Carlo**: HS empirical, GBM normal, Merton Poisson-mixture quantile (root search), GARCH-t scaled t, FHS empirical standardised residuals;
+  - at each refit both critics are rerun with the engine's code and seeds (200 paths per model, as in the engine), and their choices give the "critic" VaR.
+- **Alternatives:**
+  - Monte Carlo VaR with N paths: slower and adds simulation noise to a quantity that has a closed form;
+  - daily refits: about 5× the cost with little gain.
+- **Tests and groups:**
+  - Kupiec POF, Christoffersen independence and conditional coverage per stock;
+  - pooled exceedance rate and the share of stocks rejected per group (all / BIST30 / Energy / sub-sector) × regime;
+  - quantile (tick) loss to rank models;
+  - hold-out vs in-sample critic vs HS compared per stock with a sign test.
+
+### D-067 · E2 design: out-of-sample R², stability, VIF, regimes
+- **Decision:**
+  - OOS R²: fit on 104 weeks, test on the next 26, step 26 weeks; SSE/SST around the training mean; realised factor changes in the test weeks (the model explains contemporaneous moves). Model B's market residual in the test weeks uses only the training-window orthogonalisation.
+  - Beta stability: rolling 104-week betas every 4 weeks, in "% response to a 1-sd move", with their sd and sign agreement with the full-sample beta.
+  - Universe comparison with and without overlapping names (TUPRS), Mann–Whitney p-values.
+- **Fix found while building E2:** `regime_betas` always returned an empty table, because the 104-week minimum of the full-sample fit was also applied inside each regime. Regimes now use their own minimum (52 weeks). This also affects the regime table on the "BIST30 vs Enerji" page.
+
+### D-068 · Token budget for reasoning calls
+- **Problem:** with the longer v3 prompt, Nemotron's hidden reasoning used the full 4,096-token budget (`finish_reason = length`, empty content), so the scenario analyst failed 3 times.
+- **Decision:**
+  - `llm.max_tokens` = 16,384;
+  - an empty reply with `finish_reason = length` is now reported as a clear error and is not retried (a retry would fail the same way).
+  - Lean calls (reasoning off) are unaffected (~100 output tokens).
+
+### D-069 · E3 design: PPK event study
+- **Decision:**
+  - day 0 = meeting date (decision at 14:00 during the session); window [−1, +5]; market model on [−250, −30] (XU100).
+  - Two realised measures:
+    - market-model CAR;
+    - mean-adjusted return, which keeps the market-wide part the scenario engine predicts.
+  - Prediction: scenario engine at day −2 (Model A, current-regime covariance with the D-053 guard, regime pass-through, propagated, 1 week), deterministic expected log-return change.
+  - Abnormal prediction = total − β_MM × predicted XU100 response (XU100 Model A on the same data).
+  - Bootstrap CIs resample events (2,000 draws).
+  - Holds are reported as realised reactions only.
+- **Data limitation:** 2018 meetings have no 250-day estimation window, and before 2020 no factor has 104 weeks of history. So the 4 cuts of 2019 have realised reactions only; predictions cover the 37 rate changes from 2020-01 on.
+
+### D-070 · E4 design: stocks, timing, mapping, costs, rule filter
+- **Stocks:** 5 BIST30 + 5 Energy with the highest median daily traded value (close × volume, 12 months before SELECTION_DATE), among names with a valid risk report at SELECTION_DATE (DSTKF excluded, D-038). BIST30 is picked first; Energy names already picked are skipped, so there are 10 distinct names.
+- **Timing:** decision at the last session of each week (data up to that close), position held to the next week-end close. Costs 10 bp + 5 bp per unit change of position; cash earns TLREF (interbank O/N before 2018-12-28).
+- **Mapping:** AL = 1, ALMA = 0, BEKLE = keep the previous position (start in cash). Sensitivity: BEKLE = 0.5. Failed calls keep the previous position.
+- **Portfolio:** 10 sleeves of equal starting capital, no rebalancing (sum of sleeve values).
+- **USD:** returns and the TLREF cash return converted with the weekly USD/TRY change.
+- **Rule-based filter (no LLM):** long if price > 200-day MA and the hold-out-critic VaR 99 forecast (E1) is at or below its median of the previous 252 sessions. Run on the LLM window and on 2019–2026.
+- **Significance:** stationary bootstrap (mean block 4 weeks, 5,000 draws) for Sharpe differences.
+- **Variants:** P, P+R, P+R+S and P+R+S anonymised, all lean with reasoning off, built from one cached P+R+S context per stock-week (`data/e4_inputs/`), so the ablations differ only in the blocks shown.
+
+### D-071 · E5 design
+- **Repeatability:** 20 stock-weeks sampled (seeded) from the E4 inputs (P+R+S). k = 5 lean calls at the production temperature (0.2, reasoning off). Repeats 2–5 bypass the cache with a `#rep<k>` prompt-version suffix (prompt text unchanged); repeat 1 is the E4 call itself.
+  - The production temperature was chosen over a higher one because it measures the variability that actually reaches the backtest.
+- **Cross-model:** Nemotron 3 Ultra vs Kimi K3.1 Pro vs Gemma 4 31B (provider defaults).
+- **Reasoning on vs off:** reasoning-on calls use a `#reasoning_on` suffix, because the cache key does not contain the reasoning switch.
+- **Full mode:** 6 analyses (THYAO, AKBNK, GARAN; ENJSA, TUPRS, AKSEN) on the latest date. They also warm the demo cache.
