@@ -19,7 +19,7 @@ Status: ✅ done · 🔄 running · ⏳ todo. Updated after each experiment.
 
 <!-- llm-run-status:begin -->
 
-**LLM run status** (updated 2026-11-23 19:53 UTC; `llm_runner`, D-074)
+**LLM run status** (updated 2026-11-23 21:12 UTC; `llm_runner`, D-074)
 
 | E4 variant | Decisions | Coverage |
 |---|---|---|
@@ -30,9 +30,9 @@ Status: ✅ done · 🔄 running · ⏳ todo. Updated after each experiment.
 
 Current pace: 2 RPM (1 worker).
 
-Recent pacing events: 2026-11-23 19:44 UTC 'HTTP 429 after 1 attempts': pace 5 RPM, wait 60s; 2026-11-23 19:46 UTC 'HTTP 429 after 1 attempts': pace 2 RPM, wait 60s; 2026-11-23 19:49 UTC 'HTTP 429 after 1 attempts': pace 2 RPM, wait 60s
+Recent pacing events: 2026-11-23 20:13 UTC 'HTTP 429 after 1 attempts': pace 2 RPM, wait 60s; 2026-11-23 20:15 UTC 'HTTP 429 after 1 attempts': pace 2 RPM, wait 60s; 2026-11-23 20:20 UTC 'HTTP 429 after 1 attempts': pace 2 RPM, wait 60s
 
-Variant P finished at 2026-11-23 19:53 UTC.
+E5 (reduced) finished at 2026-11-23 21:12 UTC: /home/user/bitirme-projesi/results/e5_llm/20261123_195338
 
 Resume: `uv run python -m pusula.evaluation.llm_runner all` (fresh container: see `docs/RUN_LLM_LOCALLY.md`).
 
