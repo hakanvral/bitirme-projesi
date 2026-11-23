@@ -487,6 +487,375 @@ def t03_llm_models() -> list[str]:
     )
 
 
+# --------------------------------------------------------------------------- E1: Ş5, Ş6, T4, T5
+E1_MODELS = ["HS", "FHS", "GBM", "Merton", "GARCH-t", "critic_insample", "critic_holdout"]
+
+
+def _e1() -> Path:
+    run = latest_run("e1_var")
+    if run is None:
+        raise RuntimeError("E1 results missing")
+    return run
+
+
+def s05_exceedance() -> list[str]:
+    plt = plt_setup()
+    sm = pd.read_csv(_e1() / "e1_summary_by_group_regime.csv")
+    sm = sm[(sm["regime"] == "all") & sm["group"].isin(["BIST30", "Energy"])]
+    fig, axes = plt.subplots(1, 2, figsize=(7.6, 3.3))
+    x = np.arange(len(E1_MODELS))
+    for ax, lv in zip(axes, (0.95, 0.99), strict=True):
+        piv = sm[sm["level"] == lv].pivot(index="model", columns="group", values="exceed_rate")
+        piv = piv.reindex(E1_MODELS)
+        ax.bar(x - 0.2, piv["BIST30"] * 100, 0.4, color=BLUE, label="BIST30")
+        ax.bar(x + 0.2, piv["Energy"] * 100, 0.4, color=ORANGE, label="Enerji")
+        ax.axhline(
+            (1 - lv) * 100,
+            color="black",
+            ls="--",
+            lw=1,
+            label=f"hedef %{tr_num((1 - lv) * 100, 0)}",
+        )
+        ax.set_xticks(x, [MODEL_TR[m] for m in E1_MODELS], fontsize=7, rotation=30, ha="right")
+        ax.set_title(f"VaR %{lv * 100:.0f} (1 gün)", loc="left")
+        fmt_axis(ax, "y", "pct", 1 if lv == 0.95 else 2)
+    axes[0].set_ylabel("aşım oranı")
+    axes[1].legend(fontsize=7, loc="upper left")
+    fig.suptitle(
+        "E1: VaR aşım oranları, 2019–2026 (41 hisse, 73.842 hisse-gün)",
+        fontsize=11,
+        x=0.02,
+        ha="left",
+    )
+    fig.tight_layout()
+    return save_fig(fig, "sekil_05_e1_asim_oranlari")
+
+
+def s06_pass_heatmap() -> list[str]:
+    plt = plt_setup()
+    sm = pd.read_csv(_e1() / "e1_summary_by_group_regime.csv")
+    sm = sm[(sm["regime"] == "all") & sm["group"].isin(["BIST30", "Energy"])]
+    tests = [("share_reject_pof", "POF"), ("share_reject_ind", "BĞM"), ("share_reject_cc", "KK")]
+    fig, axes = plt.subplots(1, 2, figsize=(8.2, 3.4), sharey=True)
+    for ax, lv in zip(axes, (0.95, 0.99), strict=True):
+        cols, labels = [], []
+        for g in ("BIST30", "Energy"):
+            for col, tname in tests:
+                s = (
+                    sm[(sm["level"] == lv) & (sm["group"] == g)]
+                    .set_index("model")[col]
+                    .reindex(E1_MODELS)
+                )
+                cols.append(1 - s.to_numpy())
+                labels.append(tname)
+        M = np.column_stack(cols)
+        im = ax.imshow(M, cmap="RdYlGn", vmin=0, vmax=1, aspect="auto")
+        for i in range(M.shape[0]):
+            for j in range(M.shape[1]):
+                ax.text(j, i, tr_pct(M[i, j], 0), ha="center", va="center", fontsize=6.5)
+        ax.axvline(2.5, color="white", lw=2)
+        ax.set_xticks(range(len(labels)), labels, fontsize=7)
+        for xc, g in ((1, "BIST30"), (4, "Enerji")):
+            ax.text(
+                xc,
+                -0.75,
+                g,
+                ha="center",
+                va="bottom",
+                fontsize=8,
+                color=BLUE if g == "BIST30" else ORANGE,
+            )
+        ax.set_yticks(range(len(E1_MODELS)), [MODEL_TR[m] for m in E1_MODELS], fontsize=7.5)
+        ax.set_title(f"VaR %{lv * 100:.0f}", loc="left", pad=16)
+        ax.grid(False)
+    fig.text(
+        0.02,
+        0.01,
+        "POF = Kupiec kapsama testi, BĞM = Christoffersen bağımsızlık testi, "
+        "KK = koşullu kapsama testi",
+        fontsize=7,
+    )
+    cb = fig.colorbar(im, ax=axes, shrink=0.8)
+    fmt_axis(cb.ax, "y", "frac", 0)
+    cb.set_label("testi geçen hisse payı (%5 düzey)")
+    fig.suptitle(
+        "E1: Kupiec ve Christoffersen testlerini geçen hisse payı",
+        fontsize=11,
+        x=0.02,
+        ha="left",
+        y=1.06,
+    )
+    return save_fig(fig, "sekil_06_e1_test_gecme_isi_haritasi")
+
+
+def t04_e1_table() -> list[str]:
+    k = pd.read_csv(_e1() / "e1_key_table.csv")
+    k = k[k["group"] == "Tümü"]
+    out = pd.DataFrame(
+        {
+            "Model": k["model"].map(MODEL_TR),
+            "Düzey": k["level"].map(lambda v: f"%{v * 100:.0f}"),
+            "Aşım oranı": k["exceed_rate"].map(lambda v: tr_pct(v, 2)),
+            "Kupiec p (havuz)": k["pooled_kupiec_p"].map(
+                lambda v: "<0,001" if v < 0.001 else tr_num(v, 3)
+            ),
+            "POF red payı": k["share_reject_pof"].map(lambda v: tr_pct(v, 0)),
+            "Bağımsızlık red payı": k["share_reject_ind"].map(lambda v: tr_pct(v, 0)),
+            "Koşullu kapsama red payı": k["share_reject_cc"].map(lambda v: tr_pct(v, 0)),
+            "Kuantil kaybı (×10⁴)": k["tick_loss_x1e4"].map(lambda v: tr_num(v, 2)),
+        }
+    )
+    return save_tab(
+        out,
+        "tablo_04_e1_var_backtest",
+        "Tablo 4. E1: 1 günlük VaR backtest'i, tüm hisseler (2019 – 20.11.2026; red payı: %5 düzeyde testi reddeden hisse oranı)",
+    )
+
+
+def t05_e1_critic() -> list[str]:
+    c = pd.read_csv(_e1() / "e1_critic_comparison.csv")
+    other = {
+        "critic_holdout vs critic_insample": "örneklem içi kritik",
+        "critic_holdout vs HS": "HS",
+    }
+    out = pd.DataFrame(
+        {
+            "Düzey": c["level"].map(lambda v: f"%{v * 100:.0f}"),
+            "Karşılaştırma": "Hold-out kritik – " + c["comparison"].map(other),
+            "Hold-out kuantil kaybı daha düşük": c.apply(
+                lambda r: f"{r['holdout_lower_tick_loss']} / {r['n_stocks']}", axis=1
+            ),
+            "İşaret testi p": c["sign_test_p"].map(
+                lambda v: "<0,001" if v < 0.001 else tr_num(v, 2)
+            ),
+            "Ort. kuantil kaybı (hold-out, ×10⁴)": c["mean_tick_loss_holdout_x1e4"].map(
+                lambda v: tr_num(v, 2)
+            ),
+            "Ort. kuantil kaybı (diğer, ×10⁴)": c["mean_tick_loss_other_x1e4"].map(
+                lambda v: tr_num(v, 2)
+            ),
+            "Hold-out kapsama hedefe daha yakın": c.apply(
+                lambda r: f"{r['holdout_closer_coverage']} / {r['n_stocks']}", axis=1
+            ),
+        }
+    )
+    return save_tab(
+        out,
+        "tablo_05_e1_kritik_karsilastirma",
+        "Tablo 5. E1: hold-out kritik, örneklem içi kritik ve HS karşısında (hisse bazında, örneklem dışı)",
+    )
+
+
+# --------------------------------------------------------------------------- E2: Ş7, Ş8, T6, T7
+FACTOR_TR = {
+    "rate": "2Y faiz",
+    "usdtry": "USD/TRY",
+    "brent": "Brent",
+    "ttf": "TTF",
+    "cds": "CDS",
+    "vix": "VIX",
+    "us10y": "ABD 10Y",
+}
+
+
+def _e2() -> Path:
+    run = latest_run("e2_factor")
+    if run is None:
+        raise RuntimeError("E2 results missing")
+    return run
+
+
+def s07_beta_heatmap() -> list[str]:
+    from matplotlib.colors import TwoSlopeNorm
+
+    plt = plt_setup()
+    sens = pd.read_csv(_e2() / "e2_sensitivities.csv")
+    mem = members().drop_duplicates(["symbol", "universe"])
+    blocks = [("BIST30", sorted(mem[mem["universe"] == "BIST30"]["symbol"]), None)]
+    for sub in ("refining_petroleum", "natural_gas", "electricity"):
+        blocks.append(
+            (
+                SUB_TR[sub],
+                sorted(mem[(mem["universe"] == "Energy") & (mem["sub_sector"] == sub)]["symbol"]),
+                sub,
+            )
+        )
+    sens1 = sens.drop_duplicates(["symbol", "factor"])
+    piv = sens1.pivot(index="symbol", columns="factor", values="resp_1sd_pct")
+    pv = sens1.pivot(index="symbol", columns="factor", values="p")
+    facs = [f for f in FACTOR_TR if f in piv.columns]
+    rows, labels, colors, seps = [], [], [], []
+    for _name, syms, sub in blocks:
+        for s_ in syms:
+            if s_ in piv.index:
+                rows.append(s_)
+                labels.append(s_.removesuffix(".IS"))
+                colors.append(BLUE if sub is None else SUB_COLORS[sub])
+        seps.append(len(rows))
+    M, P = (
+        piv.reindex(index=rows, columns=facs).to_numpy(),
+        pv.reindex(index=rows, columns=facs).to_numpy(),
+    )
+    lim = np.nanmax(np.abs(M))
+    fig, ax = plt.subplots(figsize=(6.4, 0.2 * len(rows) + 1.6))
+    im = ax.imshow(M, aspect="auto", cmap="RdBu", norm=TwoSlopeNorm(0, -lim, lim))
+    for i in range(M.shape[0]):
+        for j in range(M.shape[1]):
+            if np.isfinite(M[i, j]):
+                ax.text(
+                    j,
+                    i,
+                    tr_num(M[i, j], 1) + ("*" if P[i, j] < 0.05 else ""),
+                    ha="center",
+                    va="center",
+                    fontsize=5.8,
+                )
+    for s_ in seps[:-1]:
+        ax.axhline(s_ - 0.5, color="black", lw=1)
+    ax.set_xticks(range(len(facs)), [FACTOR_TR[f] for f in facs], fontsize=8)
+    ax.xaxis.tick_top()
+    ax.set_yticks(range(len(rows)), labels, fontsize=6.5)
+    for t, c in zip(ax.get_yticklabels(), colors, strict=True):
+        t.set_color(c)
+    ax.grid(False)
+    y = 0
+    for name, syms, _ in blocks:
+        n = sum(1 for s_ in syms if s_ in piv.index)
+        short = {"Rafineri/akaryakıt": "Rafineri"}.get(name, name)
+        ax.text(
+            len(facs) - 0.35,
+            y + n / 2 - 0.5,
+            short,
+            va="center",
+            fontsize=6.5,
+            rotation=270 if n > 3 else 0,
+        )
+        y += n
+    cb = fig.colorbar(im, ax=ax, shrink=0.5, pad=0.08)
+    cb.set_label("haftalık getiri tepkisi (%)")
+    fmt_axis(cb.ax, "y", "pct", 1)
+    ax.set_title(
+        "1 standart sapmalık haftalık faktör hareketine yüzde tepki (Model A)\n* p < 0,05 (Newey–West); PTF kullanılmadı",
+        fontsize=9,
+        pad=24,
+    )
+    return save_fig(fig, "sekil_07_e2_beta_isi_haritasi")
+
+
+def s08_r2() -> list[str]:
+    plt = plt_setup()
+    st = pd.read_csv(_e2() / "e2_per_stock.csv")
+    fig, axes = plt.subplots(1, 2, figsize=(7.4, 3.4), sharey=True)
+    for ax, (m, title) in zip(
+        axes, (("A", "Model A (yalnız makro)"), ("B", "Model B (+ piyasa artığı)")), strict=True
+    ):
+        for u, g in st.groupby("universe"):
+            if u == "BIST30":
+                ax.scatter(
+                    g[f"r2_{m}"], g[f"oos_r2_{m}"], s=14, color=BLUE, label="BIST30", alpha=0.8
+                )
+            else:
+                for sub, gg in g.groupby("sub_sector"):
+                    ax.scatter(
+                        gg[f"r2_{m}"],
+                        gg[f"oos_r2_{m}"],
+                        s=14,
+                        color=SUB_COLORS[sub],
+                        label=f"Enerji: {SUB_TR[sub]}",
+                        alpha=0.9,
+                        marker="s",
+                    )
+        lo = min(-0.3, st[[f"oos_r2_{m}"]].min().min() - 0.02)
+        ax.plot([0, 0.8], [0, 0.8], color="grey", lw=0.8, ls="--")
+        ax.axhline(0, color="black", lw=0.8)
+        ax.set_xlim(0, 0.8)
+        ax.set_ylim(lo, 0.8)
+        ax.set_title(title, loc="left")
+        ax.set_xlabel("örneklem içi R²")
+        fmt_axis(ax, "x", "num", 1)
+        fmt_axis(ax, "y", "num", 1)
+    axes[0].set_ylabel("örneklem dışı R² (2 yıl kurulum, 26 hafta test)")
+    axes[1].legend(fontsize=6.5, loc="upper left")
+    fig.suptitle(
+        "E2: faktör modelinin örneklem içi ve dışı açıklama gücü (hisse başına)",
+        fontsize=11,
+        x=0.02,
+        ha="left",
+    )
+    fig.tight_layout()
+    return save_fig(fig, "sekil_08_e2_r2_ic_dis")
+
+
+def t06_e2_table() -> list[str]:
+    c = pd.read_csv(_e2() / "e2_universe_comparison.csv")
+    names = {
+        "r2_A": "Örneklem içi R², Model A",
+        "r2_B": "Örneklem içi R², Model B",
+        "oos_r2_A": "Örneklem dışı R², Model A",
+        "oos_r2_B": "Örneklem dışı R², Model B",
+        "max_vif": "En büyük VIF",
+    }
+    rows = []
+    for metric, label in names.items():
+        a = c[(c["sample"] == "all") & (c["metric"] == metric)].iloc[0]
+        b = c[(c["sample"] == "no_overlap") & (c["metric"] == metric)].iloc[0]
+        rows.append(
+            {
+                "Ölçüt": label,
+                "BIST30 medyan": tr_num(a["BIST30_median"], 3),
+                "Enerji medyan": tr_num(a["Energy_median"], 3),
+                "Mann–Whitney p": tr_num(a["mw_p"], 3),
+                "Enerji medyan (TUPRS hariç)": tr_num(b["Energy_median"], 3),
+            }
+        )
+    for f, label in FACTOR_TR.items():
+        sel = c[(c["sample"] == "all") & (c["metric"] == f"resp_1sd_pct:{f}")]
+        if sel.empty:
+            continue
+        a = sel.iloc[0]
+        b = c[(c["sample"] == "no_overlap") & (c["metric"] == f"resp_1sd_pct:{f}")].iloc[0]
+        rows.append(
+            {
+                "Ölçüt": f"Tepki (1 sd), {label}",
+                "BIST30 medyan": tr_pct(a["BIST30_median"] / 100, 2),
+                "Enerji medyan": tr_pct(a["Energy_median"] / 100, 2),
+                "Mann–Whitney p": tr_num(a["mw_p"], 3),
+                "Enerji medyan (TUPRS hariç)": tr_pct(b["Energy_median"] / 100, 2),
+            }
+        )
+    return save_tab(
+        pd.DataFrame(rows),
+        "tablo_06_e2_faktor_modeli",
+        "Tablo 6. E2: faktör modeli, BIST30 ve Enerji (örtüşen TUPRS dahil ve hariç)",
+    )
+
+
+def t07_e2_subsector() -> list[str]:
+    b = pd.read_csv(_e2() / "e2_by_subsector.csv")
+    grp = {
+        "BIST30": "BIST30",
+        "Energy:electricity": "Enerji: elektrik",
+        "Energy:natural_gas": "Enerji: doğalgaz",
+        "Energy:refining_petroleum": "Enerji: rafineri/akaryakıt",
+    }
+    out = pd.DataFrame(
+        {
+            "Grup": b["group"].map(grp),
+            "N": b["n"].astype(int).astype(str),
+            "R² A": b["r2_A"].map(lambda v: tr_num(v, 3)),
+            "R² B": b["r2_B"].map(lambda v: tr_num(v, 3)),
+            "ÖD R² A": b["oos_r2_A"].map(lambda v: tr_num(v, 3)),
+            "ÖD R² B": b["oos_r2_B"].map(lambda v: tr_num(v, 3)),
+            "En büyük VIF": b["max_vif"].map(lambda v: tr_num(v, 2)),
+        }
+    )
+    return save_tab(
+        out,
+        "tablo_07_e2_alt_sektorler",
+        "Tablo 7. E2: alt sektörlere göre medyan açıklama gücü (ÖD = örneklem dışı)",
+    )
+
+
 ITEMS = {
     "s02": s02_macro,
     "s03": s03_fan,
@@ -494,6 +863,14 @@ ITEMS = {
     "t01": t01_descriptive,
     "t02": t02_energy_selection,
     "t03": t03_llm_models,
+    "s05": s05_exceedance,
+    "s06": s06_pass_heatmap,
+    "t04": t04_e1_table,
+    "t05": t05_e1_critic,
+    "s07": s07_beta_heatmap,
+    "s08": s08_r2,
+    "t06": t06_e2_table,
+    "t07": t07_e2_subsector,
 }
 
 

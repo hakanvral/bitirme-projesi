@@ -1,0 +1,5 @@
+Düzey,Karşılaştırma,Hold-out kuantil kaybı daha düşük,İşaret testi p,"Ort. kuantil kaybı (hold-out, ×10⁴)","Ort. kuantil kaybı (diğer, ×10⁴)",Hold-out kapsama hedefe daha yakın
+%95,Hold-out kritik – örneklem içi kritik,36 / 41,"<0,001","30,23","31,00",18 / 41
+%95,Hold-out kritik – HS,36 / 41,"<0,001","30,23","31,07",18 / 41
+%99,Hold-out kritik – örneklem içi kritik,24 / 41,"0,35","9,34","9,45",7 / 41
+%99,Hold-out kritik – HS,25 / 41,"0,21","9,34","9,50",7 / 41
