@@ -233,6 +233,19 @@ def test_anonymized_inputs_hide_names_and_dates(patched):
     assert run.inputs["hisse"]["kod"] == "Hisse A"
 
 
+def test_anonymization_hides_sector_specific_limitations():
+    """D-072: the PTF limitation would reveal an electricity company."""
+    from pusula.agents.inputs import _anonymize
+
+    out = _anonymize(
+        {
+            "veri_kisitlari": ["Elektrik piyasa fiyatı (PTF) verisi yok; bu etki modellenmedi."],
+            "faktor": "PTF (elektrik)",
+        }
+    )
+    assert "lektrik" not in json.dumps(out, ensure_ascii=False)
+
+
 def test_usage_logging_and_run_persistence(tmp_path, patched):
     from pusula.data.store import Store
 

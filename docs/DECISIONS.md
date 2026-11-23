@@ -395,3 +395,7 @@ Same lean task (THYAO, 2026-11-20, P+R+S): Nemotron 3 Ultra **BEKLE** (0.6, both
 - **Cross-model:** Nemotron 3 Ultra vs Kimi K3.1 Pro vs Gemma 4 31B (provider defaults).
 - **Reasoning on vs off:** reasoning-on calls use a `#reasoning_on` suffix, because the cache key does not contain the reasoning switch.
 - **Full mode:** 6 analyses (THYAO, AKBNK, GARAN; ENJSA, TUPRS, AKSEN) on the latest date. They also warm the demo cache.
+
+### D-072 · Anonymised mode hides sector-specific limitation texts
+- **Found during E4:** in anonymised inputs the limitation "Elektrik piyasa fiyatı (PTF) verisi yok; bu etki modellenmedi." revealed that the stock is an electricity company. D-060 requires hiding the sub-sector.
+- **Decision:** in anonymised mode, such texts are replaced by neutral wording ("Sektöre özgü bir fiyat verisi yok; …", "PTF (elektrik)" → "Sektöre özgü fiyat"). Test: `test_anonymization_hides_sector_specific_limitations`. All 540 anonymised E4 inputs were scanned: no ticker, company name, sub-sector, year or universe name remains (scenario names such as "Doğalgaz şoku" are the same for every stock and reveal nothing). The E4 LLM stage was restarted after the fix; anonymised answers given to the leaking inputs are not used (different cache key).

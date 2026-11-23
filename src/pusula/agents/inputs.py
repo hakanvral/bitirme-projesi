@@ -265,12 +265,23 @@ def to_input_json(ctx: StockContext, anonymized: bool = False) -> dict:
     return out
 
 
+# Texts that would reveal the sub-sector in anonymised mode (D-060, D-072).
+_SECTOR_TEXT = {
+    "Elektrik piyasa fiyatı (PTF) verisi yok; bu etki modellenmedi.": (
+        "Sektöre özgü bir fiyat verisi yok; bu etki modellenmedi."
+    ),
+    "PTF (elektrik)": "Sektöre özgü fiyat",
+}
+
+
 def _anonymize(obj):
     if isinstance(obj, dict):
         return {_anon_key(k): _anonymize(v) for k, v in obj.items()}
     if isinstance(obj, list):
         return [_anonymize(v) for v in obj]
     if isinstance(obj, str):
+        for a, b in _SECTOR_TEXT.items():
+            obj = obj.replace(a, b)
         return obj.replace("BIST30", "Grup A").replace("Enerji", "Grup B")
     return obj
 
