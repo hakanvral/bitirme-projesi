@@ -56,6 +56,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "src/pusula/app/**" = ["N999"]
+"src/pusula/evaluation/paper_figures.py" = ["E501"]  # long Turkish captions
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

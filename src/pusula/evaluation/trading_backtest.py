@@ -452,7 +452,17 @@ def rule_positions(store: Store, symbols: list[str], dates: list[date]) -> pd.Da
     return pd.DataFrame(out)
 
 
-def evaluate(dec: pd.DataFrame, stocks: pd.DataFrame, dates: list[date], out, seed: int) -> dict:
+def evaluate(
+    dec: pd.DataFrame,
+    stocks: pd.DataFrame,
+    dates: list[date],
+    out,
+    seed: int,
+    with_ci: bool = True,
+) -> dict:
+    """Strategies, metrics, tables and figures. Returns the tables and the weekly portfolio
+    returns (``port``), cash returns (``rf``) and positions (``pos``) for the paper figures.
+    ``with_ci=False`` skips the bootstrap (used by the figure pack)."""
     s = get_settings()
     cost = (s.backtest.transaction_cost_bp + s.backtest.slippage_bp) / 1e4
     store = _store()
@@ -541,7 +551,7 @@ def evaluate(dec: pd.DataFrame, stocks: pd.DataFrame, dates: list[date], out, se
         ("LLM P+R+S", "LLM P+R+S-anon"),
         ("LLM P+R+S", "Kural tabanlı risk filtresi"),
     ]
-    for wname, w in windows.items():
+    for wname, w in windows.items() if with_ci else []:
         for a, b in pairs:
             if a not in port or b not in port:
                 continue
@@ -558,7 +568,7 @@ def evaluate(dec: pd.DataFrame, stocks: pd.DataFrame, dates: list[date], out, se
     # decision distribution (failed calls are counted separately, not as a decision)
     plot_equity(port, rf, out)
     if dec.empty:
-        return {"perf": perf, "dist": None}
+        return {"perf": perf, "dist": None, "port": port, "rf": rf, "pos": strat_pos}
     ok = dec.dropna(subset=["karar"])
     dist = ok.groupby(["variant", "karar"]).size().unstack(fill_value=0)
     dist = dist.div(dist.sum(axis=1), axis=0).reset_index()
@@ -569,7 +579,7 @@ def evaluate(dec: pd.DataFrame, stocks: pd.DataFrame, dates: list[date], out, se
     save_table(ds, out, "e4_decision_distribution_per_stock", "{:.3f}")
     fails = dec["karar"].isna().groupby(dec["variant"]).mean().rename("failed_share").reset_index()
     save_table(fails, out, "e4_failed_calls", "{:.3f}")
-    return {"perf": perf, "dist": dist}
+    return {"perf": perf, "dist": dist, "port": port, "rf": rf, "pos": strat_pos}
 
 
 def plot_equity(port: dict[str, pd.Series], rf: pd.Series, out) -> list[str]:

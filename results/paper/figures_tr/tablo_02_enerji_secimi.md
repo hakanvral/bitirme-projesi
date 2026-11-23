@@ -1,0 +1,20 @@
+**Tablo 2. Kurala dayalı enerji hissesi seçimi (seçim tarihi 03.11.2025; yalnızca bu tarihe kadarki veri)**
+
+| Hisse   | Şirket                       | Alt sektör         | BIST30'da   | İlk işlem   | Medyan işlem hacmi (mn TL)   | Likidite sırası   | Seçildi   | Giriş kuralı        |
+|:--------|:-----------------------------|:-------------------|:------------|:------------|:-----------------------------|:------------------|:----------|:--------------------|
+| TUPRS   | Tüpraş                       | Rafineri/akaryakıt | evet        | 01.01.2018  | 2.677,0                      | 1                 | evet      | 3 yıl               |
+| CANTE   | Çan2 Termik                  | Elektrik           | hayır       | 30.04.2021  | 271,0                        | 2                 | evet      | 3 yıl               |
+| ODAS    | Odaş Elektrik                | Elektrik           | hayır       | 01.01.2018  | 253,1                        | 3                 | evet      | 3 yıl               |
+| ZOREN   | Zorlu Enerji                 | Elektrik           | hayır       | 01.01.2018  | 227,2                        | 5                 | evet      | 3 yıl               |
+| ENJSA   | Enerjisa Enerji              | Elektrik           | hayır       | 08.02.2018  | 221,1                        | 6                 | evet      | 3 yıl               |
+| AKSEN   | Aksa Enerji                  | Elektrik           | hayır       | 01.01.2018  | 161,6                        | 7                 | evet      | 3 yıl               |
+| NATEN   | Naturel Yenilenebilir Enerji | Elektrik           | hayır       | 08.08.2019  | 148,8                        | 8                 | evet      | 3 yıl               |
+| ESEN    | Esenboğa Elektrik            | Elektrik           | hayır       | 09.10.2020  | 95,9                         | 10                | hayır     | –                   |
+| AYGAZ   | Aygaz                        | Rafineri/akaryakıt | hayır       | 01.01.2018  | 71,6                         | 12                | evet      | 3 yıl               |
+| BIOEN   | Biotrend Çevre ve Enerji     | Elektrik           | hayır       | 28.04.2021  | 69,8                         | 13                | hayır     | –                   |
+| GWIND   | Galata Wind                  | Elektrik           | hayır       | 22.04.2021  | 66,6                         | 14                | hayır     | –                   |
+| AYDEM   | Aydem Yenilenebilir          | Elektrik           | hayır       | 30.04.2021  | 47,2                         | 15                | hayır     | –                   |
+| ENERY   | Enerya Enerji                | Doğalgaz           | hayır       | 23.08.2023  | 250,2                        | 4                 | evet      | 2 yıl (gevşetilmiş) |
+| AHGAZ   | Ahlatcı Doğal Gaz            | Doğalgaz           | hayır       | 26.12.2022  | 104,9                        | 9                 | evet      | 2 yıl (gevşetilmiş) |
+| AKFYE   | Akfen Yenilenebilir          | Elektrik           | hayır       | 16.03.2023  | 79,0                         | 11                | hayır     | –                   |
+| ENTRA   | IC Enterra Yenilenebilir     | Elektrik           | hayır       | 04.04.2024  | 161,4                        | –                 | hayır     | –                   |

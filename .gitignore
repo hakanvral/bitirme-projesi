@@ -17,7 +17,10 @@ data/*
 data/manual/*
 !data/manual/README.md
 !data/manual/templates/
-results/
+results/*
+!results/paper/
+results/paper/*
+!results/paper/figures_tr/
 *.duckdb
 *.duckdb.wal
 
