@@ -4,6 +4,8 @@
 
 Status: ✅ done · 🔄 running · ⏳ todo. Updated after each experiment.
 
+**Data freeze (D-076):** data as of 2026-11-20; the data update is disabled until E4 and E5 are finished.
+
 | Step | Status | Output | Resume command |
 |---|---|---|---|
 | Step 0: prompt v3 + context-aware numeric check | ✅ done (THYAO, ENJSA rerun, audit passed) | `docs/prompt_v3_before_after.md` | `uv run pytest tests/test_agents.py` |

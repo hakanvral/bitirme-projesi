@@ -58,6 +58,8 @@ Kullanıcı onayı bekleyen yapılandırmalar: `config/universe.yaml` (iki BIST3
 
 ## 2. Verileri güncelleme
 
+> **Veri dondurma açık (D-076):** LLM deneyleri (E4, E5) bitene kadar veri güncellemesi kapalıdır; makale 2026-11-20 tarihli veriyi kullanır. Yeni bir bilgisayarda boş veritabanını doldurmak için: `uv run python -m pusula.data.update --frozen-rebuild`.
+
 ```bash
 uv run python -m pusula.data.update                  # tüm veriler (artımlı); --full, --only
 uv run python -m pusula.universe.validate --names    # her Yahoo sembolünün indiğini kontrol et

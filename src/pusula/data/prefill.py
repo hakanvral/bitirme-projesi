@@ -42,6 +42,9 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("what", choices=["ppk"])
     args = p.parse_args(argv)
     setup_logging()
+    from pusula.config import assert_data_not_frozen
+
+    assert_data_not_frozen("PPK prefill")
     s = get_settings()
     s.paths.manual_dir.mkdir(parents=True, exist_ok=True)
     with httpx.Client(timeout=60, follow_redirects=True) as c:

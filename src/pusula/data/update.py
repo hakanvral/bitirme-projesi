@@ -310,8 +310,27 @@ def run_update(
     today: date | None = None,
     manual_dir: Path | None = None,
     results_dir: Path | None = None,
+    frozen_rebuild: bool = False,
 ) -> pd.DataFrame:
+    """``frozen_rebuild`` (D-076): rebuild an EMPTY database (fresh clone / container) while the
+    data freeze is on, with data only up to ``data_freeze.as_of``."""
     s = get_settings()
+    fz = s.data_freeze
+    if frozen_rebuild:
+        if not fz.enabled or fz.as_of is None:
+            raise ValueError("--frozen-rebuild needs data_freeze.enabled and data_freeze.as_of")
+        probe = store or Store(s.paths.db_path, s.paths.raw_dir)
+        if int(probe.query("SELECT count(*) AS n FROM prices")["n"].iloc[0]) > 0:
+            from pusula.config import DataFrozenError
+
+            raise DataFrozenError(
+                "--frozen-rebuild only fills an empty database; this one already has prices"
+            )
+        store, today, full = probe, fz.as_of, True
+    elif store is None:  # the project database (tests pass their own store)
+        from pusula.config import assert_data_not_frozen
+
+        assert_data_not_frozen("Data update")
     manual_dir = manual_dir or s.paths.manual_dir
     results_dir = results_dir or s.paths.results_dir
     sources = get_data_sources()
@@ -341,6 +360,13 @@ def run_update(
         update_macro(ctx)
     if "events" in steps:
         update_events(ctx)
+    if frozen_rebuild:  # manual files / web tables may hold later rows: cut them
+        cut = pd.Timestamp(fz.as_of).date()
+        with store.connect() as con:
+            for table in ("prices", "prices_clean", "macro"):
+                con.execute(f"DELETE FROM {table} WHERE date > ?", [cut])
+            con.execute("DELETE FROM events WHERE event_date > ?", [cut])
+        log.info("frozen rebuild: rows after %s removed", cut)
     if "quality" in steps:
         update_quality(ctx, results_dir, s.data_quality.jump_thresholds, s.data_quality.stale_days)
     return store.query("SELECT * FROM update_log WHERE run_at = ?", [ctx.run_at])
@@ -350,10 +376,22 @@ def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="Fetch / update all PUSULA data.")
     p.add_argument("--full", action="store_true", help="re-download from data_start")
     p.add_argument("--only", nargs="+", choices=STEPS, help="run only these steps")
+    p.add_argument(
+        "--frozen-rebuild",
+        action="store_true",
+        help="fill an EMPTY database with data up to data_freeze.as_of (D-076)",
+    )
     args = p.parse_args(argv)
     setup_logging()
-    with httpx.Client(timeout=60, follow_redirects=True) as http:
-        res = run_update(only=args.only, full=args.full, http=http)
+    from pusula.config import DataFrozenError
+
+    try:
+        with httpx.Client(timeout=60, follow_redirects=True) as http:
+            res = run_update(
+                only=args.only, full=args.full, http=http, frozen_rebuild=args.frozen_rebuild
+            )
+    except DataFrozenError as exc:
+        raise SystemExit(str(exc)) from None
     summary = res.groupby("status").size().to_dict() if not res.empty else {}
     print("\nUpdate summary:", summary)
     problems = res[res["status"] != "ok"]

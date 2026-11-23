@@ -156,6 +156,28 @@ class BacktestCfg(BaseModel):
     long_sample_start: date
 
 
+class DataFreezeCfg(BaseModel):
+    """While enabled, commands that change input data refuse to run (D-076)."""
+
+    enabled: bool = False
+    as_of: date | None = None
+    reason: str = ""
+
+
+class DataFrozenError(RuntimeError):
+    """Raised by data-changing commands while the data freeze is on."""
+
+
+def assert_data_not_frozen(action: str) -> None:
+    fz = get_settings().data_freeze
+    if fz.enabled:
+        raise DataFrozenError(
+            f"{action} refused: data freeze is on (data as of {fz.as_of}; {fz.reason}). "
+            "Set data_freeze.enabled: false in config/settings.yaml only after all LLM "
+            "experiments are finished (D-076)."
+        )
+
+
 class LLMBackupCfg(BaseModel):
     """Alternative OpenAI-compatible provider, used only when ``enabled`` (D-075)."""
 
@@ -173,6 +195,7 @@ class Settings(BaseModel):
     paths: PathsCfg
     llm: LLMCfg
     llm_backup: LLMBackupCfg = LLMBackupCfg()
+    data_freeze: DataFreezeCfg = DataFreezeCfg()
     data_quality: DataQualityCfg = DataQualityCfg()
     risk: RiskCfg = RiskCfg()
     backtest: BacktestCfg

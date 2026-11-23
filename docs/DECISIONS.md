@@ -447,3 +447,13 @@ Same lean task (THYAO, 2026-11-20, P+R+S): Nemotron 3 Ultra **BEKLE** (0.6, both
   - When enabled, every role uses the backup and Nemotron's thinking switch is not sent.
   - No automatic switch: a switch needs the user's approval and means rerunning all E4 variants and E5 with the new model (answers are cached per model, so nothing mixes).
   - If Nemotron has not finished P+R+S within ~24 h of the restart (2026-11-23 08:25 UTC), this is reported to the user.
+
+### D-076 · Data freeze until the LLM experiments are finished
+- **Decision (user):** the paper uses data as of **2026-11-20**. Until all LLM experiments (four E4 variants and E5) are finished, no input data may change: prices, macro files, corporate actions, PTF.
+- **Enforced in code** with `data_freeze` in `config/settings.yaml` (`enabled: true`, `as_of: 2026-11-20`).
+  - While enabled, these refuse to run on the project database: `pusula.data.update`, the update button on the Veri Durumu page (disabled, with a notice), `pusula.data.prefill` and `pusula.data.jump_review --write`.
+  - Tests: `test_data_freeze_blocks_the_project_data_update`, `test_frozen_rebuild_refuses_a_filled_database`.
+- **Fresh clone or container:** `python -m pusula.data.update --frozen-rebuild` may fill an **empty** database only. It uses data up to `as_of` and deletes any later rows from the manual files and web tables.
+  - A re-download is close to, but not byte-identical with, the original: Yahoo revises adjusted prices retroactively.
+  - Already finished decisions are therefore taken from the committed decision log (D-074), not recomputed.
+- **Lifting the freeze:** set `enabled: false` after E4 and E5 are complete.

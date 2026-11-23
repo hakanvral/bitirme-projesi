@@ -161,6 +161,10 @@ def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--write", action="store_true", help="add proposals to corporate_actions.yaml")
     args = p.parse_args(argv)
+    if args.write:
+        from pusula.config import assert_data_not_frozen
+
+        assert_data_not_frozen("Writing corporate-action proposals")
     setup_logging()
     s = get_settings()
     store = Store(s.paths.db_path, s.paths.raw_dir)

@@ -9,6 +9,14 @@ project:
   selection_date: "2025-11-03"
   random_seed: 42
 
+# Data freeze (D-076): the paper uses data as of 2026-11-20. While enabled, the data update,
+# PPK prefill and corporate-action proposals refuse to run, so the inputs of the running LLM
+# experiments (E4, E5) cannot change. Lift it only after all LLM experiments are finished.
+data_freeze:
+  enabled: true
+  as_of: "2026-11-20"
+  reason: "LLM experiments E4/E5 running; paper data as of 2026-11-20"
+
 paths:
   data_dir: data
   raw_dir: data/raw

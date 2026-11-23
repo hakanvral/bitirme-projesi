@@ -19,7 +19,10 @@ st.title(f"🗄️ {t('ds_title')}")
 settings = get_settings()
 db_path = settings.paths.db_path
 
-if st.button(t("ds_update_button"), type="primary"):
+_fz = settings.data_freeze
+if _fz.enabled:
+    st.info(t("ds_freeze").format(d=_fz.as_of))
+if st.button(t("ds_update_button"), type="primary", disabled=_fz.enabled):
     from pusula.data.update import run_update
 
     with st.spinner(t("ds_update_running")):

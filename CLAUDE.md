@@ -447,7 +447,8 @@ Agents and the pipeline are tested with `MockLLMClient`. Live API tests are mark
 
 ```bash
 uv sync                                          # install
-uv run python -m pusula.data.update              # fetch/update data (incremental; --full, --only)
+uv run python -m pusula.data.update              # fetch/update data (incremental; --full, --only); REFUSED while data_freeze is on
+uv run python -m pusula.data.update --frozen-rebuild  # fill an EMPTY DB with data up to data_freeze.as_of (D-076)
 uv run python -m pusula.data.evds_lookup "<text>" # search EVDS metadata to verify series codes
 uv run python -m pusula.universe.validate --names # check every Yahoo symbol downloads
 uv run python -m pusula.universe.select_energy    # rule-based energy selection
@@ -517,3 +518,4 @@ Phases 5–7 (2026-11-23, D-065 … D-072):
 LLM run under free-tier instability (2026-11-23, D-073 … D-075):
 - `llm_runner`: 1 worker, adaptive 2–20 RPM, decision log `llm_state/e4_decisions.csv` + compressed cache committed every 100 answers (repo is public: E4 inputs are NOT committed). E4 evaluates only variants with ≥98% coverage. E5 reduced to 10 stock-weeks and 4 full analyses.
 - Backup provider Gemini (`gemini-3.5-flash`, OpenAI-compatible) configured in `llm_backup`, **inactive**; switching needs the user's approval and a full rerun with one model.
+- **Data freeze (D-076):** data as of 2026-11-20; `data_freeze.enabled: true` blocks data update, PPK prefill and corporate-action writes until E4 and E5 are finished. Never run a data update or change input files before that.

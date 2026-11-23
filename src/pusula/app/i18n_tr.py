@@ -383,6 +383,10 @@ TR: dict[str, str] = {
     "ds_flags_header": "Manuel inceleme gerektiren fiyat sıçramaları (hisse ±%10,5, endeks ±%10)",
     "ds_no_flags": "İşaretlenmiş sıçrama yok.",
     "ds_update_button": "Verileri güncelle",
+    "ds_freeze": (
+        "Veri dondurma açık: makale {d} tarihli veriyi kullanıyor ve LLM deneyleri (E4, E5) "
+        "sürüyor. Deneyler bitene kadar veri güncellemesi kapalıdır."
+    ),
     "ds_update_running": "Veriler güncelleniyor… (bu işlem birkaç dakika sürebilir)",
     "ds_update_done": "Güncelleme tamamlandı.",
     "ds_update_failed": "Güncelleme sırasında hata oluştu. Ayrıntılar aşağıda.",

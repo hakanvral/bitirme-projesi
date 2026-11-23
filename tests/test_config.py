@@ -45,3 +45,36 @@ def test_secrets_never_print(monkeypatch):
     assert "very-secret" not in repr(s)
     assert "very-secret" not in str(s.model_dump())
     assert s.key_status()["ANTHROPIC_API_KEY"] is True
+
+
+def test_data_freeze_blocks_the_project_data_update():
+    """D-076: while the freeze is on, the real data update refuses to run."""
+    import pytest
+
+    from pusula.config import DataFrozenError, get_settings
+    from pusula.data.update import run_update
+
+    if not get_settings().data_freeze.enabled:
+        pytest.skip("data freeze is off")
+    with pytest.raises(DataFrozenError):
+        run_update()
+
+
+def test_frozen_rebuild_refuses_a_filled_database(tmp_path):
+    """D-076: --frozen-rebuild may only fill an empty database."""
+    import pandas as pd
+    import pytest
+
+    from pusula.config import DataFrozenError, get_settings
+    from pusula.data.store import Store
+    from pusula.data.update import run_update
+
+    if not get_settings().data_freeze.enabled:
+        pytest.skip("data freeze is off")
+    st = Store(tmp_path / "t.duckdb")
+    row = pd.DataFrame([{"date": pd.Timestamp("2026-11-20"), "ticker": "X.IS", "open": 1.0,
+                         "high": 1.0, "low": 1.0, "close": 1.0, "adj_close": 1.0,
+                         "volume": 1.0}])  # fmt: skip
+    st.upsert_prices(row, "test")
+    with pytest.raises(DataFrozenError):
+        run_update(store=st, frozen_rebuild=True)

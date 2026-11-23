@@ -91,8 +91,10 @@ Biçim kuralları `data\manual\README.md` dosyasında.
 ## 5. Verileri ve E4 girdilerini üret (yaklaşık 1 saat)
 
 ```powershell
-uv run python -m pusula.data.update
+uv run python -m pusula.data.update --frozen-rebuild
 ```
+
+> **Veri dondurma (D-076):** makale 2026-11-20 tarihli veriyi kullanır. `--frozen-rebuild` boş veritabanını yalnızca bu tarihe kadarki veriyle doldurur. Normal `data.update` komutu, deneyler bitene kadar bilerek çalışmaz. Yeniden indirilen veri buluttakiyle neredeyse aynıdır; birebir aynı değildir (Yahoo düzeltilmiş fiyatları sonradan güncelleyebilir). Daha önce alınmış kararlar karar kaydından okunur, yeniden hesaplanmaz.
 
 ```powershell
 uv run python -m pusula.evaluation.trading_backtest --stages risk inputs --workers 4
