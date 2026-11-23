@@ -169,7 +169,7 @@ def test_full_pipeline_runs_all_agents_and_audit_passes(patched):
     agents = [c.agent for c in run.calls]
     assert agents == ["risk_analyst", "scenario_analyst", "bull", "bear", "judge", "auditor"]
     assert run.audit.passed and run.audit.numbers_checked > 0 and run.decision.karar == "BEKLE"
-    assert run.totals["cost_usd"] == 0.0 and run.prompt_versions["judge"] == "judge.v1"
+    assert run.totals["cost_usd"] == 0.0 and run.prompt_versions["judge"] == "judge.v2"
 
 
 def test_invented_number_triggers_one_regeneration(patched):

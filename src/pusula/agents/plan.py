@@ -42,10 +42,16 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--stocks", type=int, default=10)
     p.add_argument("--weeks", type=int, default=52)
     p.add_argument("--e5-sample", type=int, default=20, help="analyses repeated k=5 times")
+    p.add_argument("--lean-latency", type=float, default=None, help="override (seconds)")
+    p.add_argument("--full-latency", type=float, default=None, help="override (seconds)")
     a = p.parse_args(argv)
     s = get_settings()
     info = provider_info()
     lat = measured(Store(s.paths.db_path), info["model"])
+    if a.lean_latency:
+        lat["lean_decision"] = a.lean_latency
+    if a.full_latency:
+        lat["full_call"] = a.full_latency
     rpm, conc = s.llm.rpm, s.llm.max_concurrency
     e4 = a.stocks * a.weeks * 4  # P, P+R, P+R+S, anonymized (lean: 1 request each)
     full_sample = 40 * 6  # full Bull/Bear/Judge pipeline on 40 stock-weeks (~6 requests)
