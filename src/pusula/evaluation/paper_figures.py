@@ -856,6 +856,163 @@ def t07_e2_subsector() -> list[str]:
     )
 
 
+# --------------------------------------------------------------------------- scenarios: Ş9, Ş10
+_SCEN: dict = {}
+
+
+def scenario_results(horizon: str = "3m", mode: str = "propagated") -> pd.DataFrame:
+    """All 10 presets on the frozen data (as of 2026-11-20), TRY and USD; one row per stock,
+    scenario and basis (cached in memory for the case studies)."""
+    key = (horizon, mode)
+    if key in _SCEN:
+        return _SCEN[key]
+    from pusula.macro.context import build_context, current_passthrough, make_engine
+    from pusula.macro.scenarios import load_presets, to_factor_shocks
+
+    ctx = build_context(store(), AS_OF)
+    eng = make_engine(ctx)
+    pt = current_passthrough(ctx)
+    rows = []
+    for sc in load_presets():
+        spec = to_factor_shocks(sc.shocks, eng.factors, pt)
+        for basis in ("TRY", "USD"):
+            r = eng.run(spec, horizon, mode, basis)
+            st = r["stocks"].assign(
+                scenario=sc.name_tr,
+                scenario_id=sc.id,
+                basis=basis,
+                guard=bool(r["extrapolation_guard"]),
+            )
+            rows.append(st)
+    df = pd.concat(rows, ignore_index=True)
+    _SCEN[key] = df
+    _SCEN["ctx"] = ctx
+    return df
+
+
+def s09_scenarios() -> list[str]:
+    plt = plt_setup()
+    df = scenario_results()
+    order = list(dict.fromkeys(df["scenario"]))
+    fig, axes = plt.subplots(1, 2, figsize=(8.4, 5.2), sharey=True)
+    y = np.arange(len(order))
+    for ax, basis in zip(axes, ("TRY", "USD"), strict=True):
+        d = df[df["basis"] == basis]
+        for k, (u, col) in enumerate((("BIST30", BLUE), ("Energy", ORANGE))):
+            g = d[d["universe"] == u].groupby("scenario")["d_exp_ret"].mean().reindex(order) * 100
+            ax.barh(y + (0.2 if k == 0 else -0.2), g.to_numpy(), 0.38, color=col, label=UNI_TR[u])
+        e = d[d["universe"] == "Energy"]
+        for sub, col in SUB_COLORS.items():
+            g = (
+                e[e["sub_sector"] == sub].groupby("scenario")["d_exp_ret"].mean().reindex(order)
+                * 100
+            )
+            ax.scatter(
+                g.to_numpy(),
+                y - 0.2,
+                s=14,
+                color=col,
+                edgecolor="black",
+                lw=0.4,
+                zorder=3,
+                label=f"Enerji: {SUB_TR[sub]}",
+            )
+        guard = d.groupby("scenario")["guard"].first().reindex(order)
+        ax.axvline(0, color="black", lw=0.8)
+        ax.set_title(f"{'TL bazında' if basis == 'TRY' else 'USD bazında'}", loc="left")
+        fmt_axis(ax, "x", "pct", 0)
+    labels = [o + (" †" if guard.iloc[i] else "") for i, o in enumerate(order)]
+    axes[0].set_yticks(y, labels, fontsize=7.5)
+    axes[0].invert_yaxis()
+    fig.supxlabel("beklenen getiri değişimi, 3 ay (şoksuz baz senaryoya göre)", fontsize=9, y=0.06)
+    h, lab = axes[1].get_legend_handles_labels()
+    fig.legend(h, lab, loc="lower center", ncol=5, fontsize=7, bbox_to_anchor=(0.5, 0.015))
+    fig.suptitle(
+        "Hazır senaryolar: BIST30 ve Enerji (3 ay, yayılımlı mod, 20.11.2026 verisi)",
+        fontsize=11,
+        x=0.02,
+        ha="left",
+    )
+    fig.text(
+        0.02,
+        -0.02,
+        "Çubuk: evren ortalaması; nokta: enerji alt sektör ortalaması. † Şok güncel rejimin deneyiminin çok dışında; tüm örneklem ilişkileri kullanıldı (D-053).",
+        fontsize=6.5,
+    )
+    fig.tight_layout(rect=(0, 0.08, 1, 1))
+    return save_fig(fig, "sekil_09_senaryolar_bist30_enerji")
+
+
+def s10_passthrough() -> list[str]:
+    from pusula.macro.context import build_context
+
+    plt = plt_setup()
+    ctx = _SCEN.get("ctx") or build_context(store(), AS_OF)
+    pt = ctx.passthrough
+    ev = ctx.pt_events.copy()
+    regs = [r.id for r in get_regimes().regimes if r.id in pt] + (
+        ["pooled"] if "pooled" in pt else []
+    )
+    fig, axes = plt.subplots(1, 2, figsize=(8.2, 3.5), gridspec_kw={"width_ratios": [1.2, 1]})
+    ax = axes[0]
+    for i, rid in enumerate(regs):
+        p = pt[rid]
+        col = "#555555" if rid == "pooled" else (BLUE if not p.fallback_pooled else "#BBBBBB")
+        ax.errorbar(
+            i,
+            p.beta,
+            yerr=[[p.beta - min(p.lo, p.hi)], [max(p.lo, p.hi) - p.beta]],
+            fmt="o",
+            color=col,
+            capsize=3,
+            lw=1.2,
+        )
+        ax.text(i, max(p.lo, p.hi) + 0.03, f"n={p.n_changes}", ha="center", fontsize=6.5)
+    ax.axhline(0, color="black", lw=0.8)
+    ax.axhline(1, color="grey", lw=0.6, ls=":")
+    ax.set_xticks(
+        range(len(regs)),
+        [REGIME_SHORT.get(r, "Tüm örneklem") for r in regs],
+        rotation=30,
+        ha="right",
+        fontsize=7,
+    )
+    ax.set_ylabel("aktarım katsayısı (2Y faiz / politika faizi)")
+    ax.set_title(
+        "Rejime göre aktarım, %90 bant (gri: az olay, havuz kullanıldı)", loc="left", fontsize=8.5
+    )
+    fmt_axis(ax, "y", "num", 2)
+    ax = axes[1]
+    if not ev.empty:
+        ev["regime"] = [get_regimes().regime_of(d.date()) for d in ev["meeting_date"]]
+        palette = plt.get_cmap("tab10")
+        for k, (rid, g) in enumerate(ev[ev["d_policy"] != 0].groupby("regime")):
+            ax.scatter(
+                g["d_policy"],
+                g["d_market"],
+                s=16,
+                color=palette(k),
+                label=REGIME_SHORT.get(rid, rid),
+            )
+        lim = float(np.nanmax(np.abs(ev[["d_policy"]].to_numpy()))) + 0.5
+        xs = np.linspace(-lim, lim, 10)
+        if "pooled" in pt:
+            ax.plot(xs, pt["pooled"].beta * xs, color="#555555", lw=1, ls="--", label="havuz eğimi")
+        ax.axhline(0, color="black", lw=0.6)
+        ax.axvline(0, color="black", lw=0.6)
+        ax.set_xlabel("politika faizi değişimi (puan)")
+        ax.set_ylabel("2Y faiz değişimi, [−1, +5] (puan)")
+        fmt_axis(ax, "x", "num", 1)
+        fmt_axis(ax, "y", "num", 1)
+        ax.legend(fontsize=6, loc="upper left")
+        ax.set_title("PPK kararları (faiz değişikliği olanlar)", loc="left", fontsize=8.5)
+    fig.suptitle(
+        "Politika faizinden 2 yıllık tahvil faizine aktarım", fontsize=11, x=0.02, ha="left"
+    )
+    fig.tight_layout()
+    return save_fig(fig, "sekil_10_aktarim_rejimler")
+
+
 ITEMS = {
     "s02": s02_macro,
     "s03": s03_fan,
@@ -871,6 +1028,8 @@ ITEMS = {
     "s08": s08_r2,
     "t06": t06_e2_table,
     "t07": t07_e2_subsector,
+    "s09": s09_scenarios,
+    "s10": s10_passthrough,
 }
 
 
