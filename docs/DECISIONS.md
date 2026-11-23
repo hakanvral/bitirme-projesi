@@ -274,9 +274,11 @@ Test: the same real analysis (THYAO, 2026-11-20, full mode, 6 calls), a lean dec
 | nvidia/nemotron-3-ultra-550b-a55b | full pipeline (THYAO, ENJSA), lean, auditor | Valid JSON at the first attempt in 11 of 12 agent calls (1 auditor retry). Numeric audit 222/222 and 185/185 numbers found in the input; consistency OK; fluent, careful Turkish. ~25–70 s per call with reasoning on (≈250–270 s per full analysis); lean 14–38 s with reasoning on, **~2 s with reasoning off** |
 | nvidia/nemotron-3.5-lightning-30b-a3b | auditor, lean | Auditor: empty replies 3/3 (failed). Lean: valid, 6.5 s, but weaker Turkish (mixes English terms) |
 | z-ai/glm-5.3-flash | auditor | Empty replies 3/3, 698 s (failed) |
-| mistralai/mistral-large-4-1t-a52b | full pipeline | see the PROGRESS note (still running at the time of writing; the probe gave empty content at 600 tokens and ~50 s per call) |
-| moonshotai/kimi-k3.1-pro | full pipeline | see the PROGRESS note (probe: empty content / timeouts) |
-| google/gemma-4-31b-it | lean | probe: timeouts at 120 s |
+| mistralai/mistral-large-4-1t-a52b | full pipeline, then lean | Full run: no agent finished within ~10 min (stopped). Lean: timed out twice at 300 s. Not usable on the free tier at the time of testing |
+| moonshotai/kimi-k3.1-pro | lean | Valid JSON at the first attempt, 94 s, good Turkish, 0 numbers outside the input; decision **AL** (0.62) |
+| google/gemma-4-31b-it | lean | Valid, 126 s (queue), good Turkish, 0 numbers outside the input; decision **AL** (0.70) |
+
+Same lean task (THYAO, 2026-11-20, P+R+S): Nemotron 3 Ultra **BEKLE** (0.6, both with reasoning on and off), Kimi **AL** (0.62), Gemma **AL** (0.70), Lightning **AL**. Different models disagree on the same input, which is relevant for the optional cross-model part of E5.
 
 - **Decision:** **Nemotron 3 Ultra** for the analysts, decision and auditor. No smaller model passed the auditor test, so `model_light` = the same model.
 - **Caveat:** Turkish is **not** in the model card's list of supported languages; quality is judged on the outputs (examples in PROGRESS / the P4 summary).
