@@ -52,3 +52,14 @@ The factor model needs 104 weeks of factor history, and the data start in 2018-0
 
 ### L-17 · E4 has low statistical power
 52 weekly decisions on 10 stocks cannot separate strategies with similar Sharpe ratios; the bootstrap intervals are wide. The non-LLM strategies are also run over 2019–2026 for context, but the LLM variants cannot be (cost and the look-ahead problem).
+
+### L-18 · Free-tier LLM API instability
+The LLM experiments depend on NVIDIA NIM's free tier, which gives no service guarantee.
+- **The 2026-11-23 outage:**
+  - A 35 RPM, 4-worker batch was throttled after ~6 minutes (HTTP 429 without `Retry-After`).
+  - The model was then reported `DEGRADED` (HTTP 400) for several hours.
+  - The effective throughput was ~12 requests/min at best and often ~1–4/min, against the planned 35.
+  - After the outage, even 5–10 RPM triggered 429s at first.
+- **Consequences:** E4/E5 take many hours of wall-clock time, and the runner had to be made adaptive and resumable (D-073, D-074). E5 was reduced to 10 stock-weeks and 4 full analyses.
+- **What this does not affect:** throttling changes only *when* answers arrive, not *what* they are. The prompt, model, temperature and inputs are fixed, and every answer is cached.
+- **Backup:** a provider is configured but not used (D-075). Mixing models across variants would break the ablation, so a switch would mean rerunning everything with one model.

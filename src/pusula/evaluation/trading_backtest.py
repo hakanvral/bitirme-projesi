@@ -58,6 +58,7 @@ VARIANTS = {  # name -> (ablation, anonymised)
 }
 BLOCK_OF = {"trend": "P", "risk": "P+R", "senaryo": "P+R+S"}
 POST_CUTOFF = "2026-06-01"
+MIN_COVERAGE = 0.98  # share of stock-weeks with a decision needed to evaluate a variant
 N_BOOT = 5000
 BLOCK_MEAN = 4
 
@@ -465,7 +466,24 @@ def evaluate(dec: pd.DataFrame, stocks: pd.DataFrame, dates: list[date], out, se
     }
     dec = dec.copy()
     dec["date"] = pd.to_datetime(dec["date"])
-    present = [v for v in VARIANTS if (dec["variant"] == v).any()]
+    # coverage per variant (D-074): only (nearly) complete variants are evaluated; a partly
+    # finished variant would otherwise "keep the previous position" on every missing week
+    expected = len(idx) * len(syms)
+    cov_rows = []
+    for v in VARIANTS:
+        n = int(dec[(dec["variant"] == v)]["karar"].notna().sum()) if not dec.empty else 0
+        cov_rows.append(
+            {
+                "variant": v,
+                "decisions": n,
+                "expected": expected,
+                "coverage": n / expected,
+                "evaluated": n / expected >= MIN_COVERAGE,
+            }
+        )
+    coverage = pd.DataFrame(cov_rows)
+    save_table(coverage, out, "e4_coverage", "{:.3f}")
+    present = list(coverage.loc[coverage["evaluated"], "variant"])
     for v in present:
         piv = dec[dec["variant"] == v].pivot(index="date", columns="symbol", values="karar")
         piv = piv.reindex(index=idx, columns=syms)
@@ -688,9 +706,12 @@ def main(argv: list[str] | None = None) -> None:
     if "llm" in a.stages:
         stage_llm(dates, syms, a.yes, state / "decisions.csv")
     if "eval" in a.stages:
-        f = state / "decisions.csv"
+        from pusula.evaluation.llm_runner import DECISIONS
+
+        f = DECISIONS if DECISIONS.exists() else state / "decisions.csv"  # runner log first
         if f.exists():
-            dec = pd.read_csv(f)
+            dec = pd.read_csv(f).drop_duplicates(["date", "symbol", "variant"], keep="last")
+            print(f"[eval] decisions from {f}", flush=True)
         else:  # LLM stage not run yet: evaluate the non-LLM strategies only
             print("[eval] no LLM decisions yet: non-LLM strategies only", flush=True)
             dec = pd.DataFrame(columns=["date", "symbol", "variant", "karar"])

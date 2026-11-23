@@ -125,6 +125,7 @@ Realised mean CAR [−1, +5]:
   - policy-rate changes pass through only weakly to the 2-year yield (L-14);
   - announcement-day moves are driven by the *surprise* and other news, which a weekly factor model does not see.
 - Most rate **hikes** in 2023–2024 were followed by *positive* stock reactions (e.g. XU100 +13 % around 2023-06-22) (the market welcomed the return to orthodox policy), the opposite of the model's "hike hurts" logic.
+- *Interpretation (not tested):* the 2023–24 hikes coincided with the return to orthodox monetary policy after the 2021–23 low-rate period. Investors may have read them as a **credibility signal** (lower inflation and country risk ahead) rather than as tighter financing. If so, the sign of the rate–equity relation is **regime-dependent**: a weekly factor model fitted on the previous regime will get it wrong exactly at a policy turning point. A test would need expectation (surprise) data and more events per regime.
 - The sample is small (37 events in a few policy cycles) and the CIs are wide. This is a validation result: the engine is useful for "what-if" comparisons, not for forecasting announcement-day moves (L-16).
 
 Figures: `e3_pred_vs_realised`, `e3_event_car_by_universe`.

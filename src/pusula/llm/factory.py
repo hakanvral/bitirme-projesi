@@ -51,6 +51,24 @@ def _api_key() -> str | None:
 def get_client(light: bool = False, lean: bool = False) -> LLMClient:
     """``lean=True`` adds ``llm.extra_body_lean`` (e.g. reasoning off) for E4's lean calls."""
     cfg = get_settings().llm
+    bk = get_settings().llm_backup
+    if bk.enabled:  # D-075: one model for every role while the backup is active
+        from pusula.llm.openai_compat import OpenAICompatibleClient
+
+        return OpenAICompatibleClient(
+            bk.model,
+            bk.base_url,
+            os.environ.get(bk.api_key_env) or "proxy-injected",  # cloud: proxy sets the key
+            limiter=shared_limiter(),
+            timeout_s=cfg.timeout_s,
+            json_mode=cfg.json_mode,
+            max_backoff_retries=cfg.max_backoff_retries,
+            extra_body={**bk.extra_body, **(bk.extra_body_lean if lean else {})},
+            cache=shared_cache(),
+            max_json_retries=cfg.max_json_retries,
+            temperature=cfg.temperature,
+            max_tokens=cfg.max_tokens,
+        )
     info = provider_info()
     model = info["model_light"] if light else info["model"]
     common = {"cache": shared_cache(), "max_json_retries": cfg.max_json_retries,

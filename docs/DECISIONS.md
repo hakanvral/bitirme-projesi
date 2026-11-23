@@ -411,3 +411,39 @@ Same lean task (THYAO, 2026-11-20, P+R+S): Nemotron 3 Ultra **BEKLE** (0.6, both
   - A watcher probes the endpoint every 5 minutes and resumes the batch when it answers. Finished calls are cached, so nothing is repeated.
   - Failed items are retried in up to 4 rounds before E4's evaluation runs.
   - Failed calls never enter the backtest as decisions: a missing decision keeps the previous position (D-070), and the share of failed calls per variant is reported (`e4_failed_calls`).
+
+### D-074 · Paced, resumable LLM runner; persisted state; reduced E5
+- **Runner** (`python -m pusula.evaluation.llm_runner`):
+  - 1 worker, adaptive pace: start 10 RPM. On 429, DEGRADED, timeouts and 5xx: halve the pace (min 2 RPM) and wait 60 s, doubling up to 15 min, then retry the same item. After 30 clean live calls and 5 minutes: +2 RPM (cap 20).
+  - The client's own 429 backoff is switched off, so the pacer alone decides.
+  - Cached answers cost no time and no pacing.
+- **Order** (priority, so partial results are usable):
+  1. E4 P+R+S, then P;
+  2. the reduced E5 (allowed once P+R+S and P are complete);
+  3. E4 P+R+S anonymised, then P+R.
+- **Persistence** (user's choice for a public repository):
+  - The compressed LLM cache (`llm_state/llm_cache.sqlite.gz`) and a decision log (`llm_state/e4_decisions.csv`: date, stock, variant, decision, confidence, short reason) are committed and pushed every 100 new answers.
+  - The E4 inputs are **not** committed (they contain numbers derived from the manual CDS / 2Y data); a fresh container rebuilds them.
+  - The decision log makes resuming independent of exact cache-key matches: if Yahoo revises adjusted prices, rebuilt inputs could differ slightly.
+- **E4 evaluation:** reads the decision log, reports coverage per variant (`e4_coverage`) and evaluates only variants with ≥ 98 % of stock-weeks decided. In a partly finished variant, every missing week would silently mean "keep the previous position".
+- **Reduced E5** (user request):
+  - 10 stock-weeks: the first 10 items of the original seeded 20-item draw, so answers cached for that draw remain usable;
+  - k = 5 repeats; cross-model (Kimi, Gemma) and reasoning on/off on the same 10;
+  - 4 full-mode analyses (THYAO, AKBNK; ENJSA, TUPRS), the same runs as the demo warm-up.
+
+### D-075 · Backup provider: Google Gemini (configured, not active)
+- **Endpoint:** OpenAI-compatible, `https://generativelanguage.googleapis.com/v1beta/openai/`. Verified by listing its models with the user's key (network secret). The documentation site (ai.google.dev) is not reachable from the cloud session, so the **free-tier limits are not verified**.
+- **Probe 2026-11-23** (one lean P+R+S call, THYAO 2026-11-13):
+
+  | Model | Result |
+  |---|---|
+  | `gemini-3.5-flash` | Valid JSON at the first attempt, 9.1 s, fluent Turkish, numeric audit clean (3 numbers), BEKLE (0.70) |
+  | `gemini-2.5-flash` | Valid, 12.0 s, BEKLE (0.65) |
+  | `gemini-pro-latest` | Free-tier quota is 0 (Google's own error message) |
+  | `gemini-flash-latest` | 503 "high demand" at probe time |
+
+- **Decision:**
+  - `llm_backup` in `config/settings.yaml` with `gemini-3.5-flash`, `enabled: false`.
+  - When enabled, every role uses the backup and Nemotron's thinking switch is not sent.
+  - No automatic switch: a switch needs the user's approval and means rerunning all E4 variants and E5 with the new model (answers are cached per model, so nothing mixes).
+  - If Nemotron has not finished P+R+S within ~24 h of the restart (2026-11-23 08:25 UTC), this is reported to the user.

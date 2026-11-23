@@ -170,3 +170,17 @@ def test_empty_reply_after_token_budget_is_a_clear_error_without_retries():
     with pytest.raises(LLMError, match="token budget"):
         c.generate("AGENT: x", "u", Out, agent="x", prompt_version="x.v1")
     assert len(c.calls) == 1
+
+
+def test_backup_provider_is_inactive_by_default_and_switches_all_roles(monkeypatch):
+    """D-075: the Gemini backup is configured but only used when explicitly enabled."""
+    from pusula.config import get_settings
+    from pusula.llm import factory
+
+    s = get_settings()
+    assert s.llm_backup.enabled is False
+    assert factory.get_client(lean=True).model == s.llm.model
+    s.llm_backup.enabled = True
+    monkeypatch.setattr(factory, "get_settings", lambda: s)
+    c = factory.get_client(lean=True)
+    assert c.model == s.llm_backup.model and "chat_template_kwargs" not in c.extra_body

@@ -335,6 +335,10 @@ TR: dict[str, str] = {
         "sonraki haftalardır."
     ),
     "ev_e4_ci": "Sharpe farkları için durağan bootstrap %95 güven aralıkları (TRY)",
+    "ev_e4_coverage": (
+        "LLM varyantlarının kapsamı (yalnızca hisse-haftaların en az %98'inde kararı olan "
+        "varyantlar değerlendirilir)"
+    ),
     "ev_e4_dist": "Karar dağılımı (BEKLE payı %70'i aşarsa işaretlenir)",
     "ev_e5_text": (
         "Aynı girdiye tekrar tekrar sorulduğunda modelin kararı ne kadar tutarlı (Fleiss κ)? "
@@ -487,4 +491,8 @@ EVAL_COLUMNS: dict[str, str] = {
     "expected": "Beklenen",
     "mean_var": "Ort. VaR",
     "regime": "Rejim",
+    "variant": "Varyant",
+    "decisions": "Karar sayısı",
+    "coverage": "Kapsam",
+    "evaluated": "Değerlendirildi",
 }

@@ -129,6 +129,8 @@ with tabs[3]:
             ],
         )
         _figure(run, "e4_equity_curves")
+        st.markdown(f"**{t('ev_e4_coverage')}**")
+        _table(run, "e4_coverage")
         st.markdown(f"**{t('ev_e4_ci')}**")
         _table(run, "e4_sharpe_diff_ci", f"window == '{win}'")
         st.markdown(f"**{t('ev_e4_dist')}**")

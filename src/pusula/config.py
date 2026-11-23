@@ -156,10 +156,23 @@ class BacktestCfg(BaseModel):
     long_sample_start: date
 
 
+class LLMBackupCfg(BaseModel):
+    """Alternative OpenAI-compatible provider, used only when ``enabled`` (D-075)."""
+
+    enabled: bool = False
+    base_url: str = ""
+    model: str = ""
+    api_key_env: str = ""
+    rpm: int = 10
+    extra_body: dict = {}
+    extra_body_lean: dict = {}
+
+
 class Settings(BaseModel):
     project: ProjectCfg
     paths: PathsCfg
     llm: LLMCfg
+    llm_backup: LLMBackupCfg = LLMBackupCfg()
     data_quality: DataQualityCfg = DataQualityCfg()
     risk: RiskCfg = RiskCfg()
     backtest: BacktestCfg

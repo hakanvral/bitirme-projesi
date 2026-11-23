@@ -462,6 +462,8 @@ uv run python -m pusula.evaluation.factor_eval    # E2 factor model evaluation
 uv run python -m pusula.evaluation.event_study    # E3 PPK event study
 uv run python -m pusula.evaluation.trading_backtest --yes   # E4 (stages risk inputs llm eval; resumable)
 uv run python -m pusula.evaluation.llm_reliability --yes    # E5 (resumable via the cache)
+uv run python -m pusula.evaluation.llm_runner all  # paced LLM work: E4 P+R+S, P, E5, anon, P+R (D-074)
+uv run python -m pusula.evaluation.llm_runner restore  # fresh container: restore committed LLM cache
 uv run python -m pusula.demo.warmup              # pre-run demo analyses (THYAO, AKBNK, ENJSA, TUPRS)
 uv run streamlit run src/pusula/app/Home.py      # dashboard
 uv run pytest                                    # tests
@@ -511,3 +513,7 @@ Phases 5–7 (2026-11-23, D-065 … D-072):
 - E1 exact-quantile VaR, refit every 5 days, both critics rerun per refit; E2 rolling OOS R² (104/26 weeks); E3 market-model CAR [−1,+5] vs scenario engine fitted pre-event; E4 10 stocks by liquidity, weekly, BEKLE = keep, cash at TLREF, rule filter = MA200 + VaR99 below its 1-year median; E5 k=5 repeats at production temperature, cross-model, reasoning on/off, 6 full audits.
 - Experiment worker pools are single-thread `spawn` processes with a read-only Store (DuckDB lock retry).
 - Anonymised mode also hides sector-specific limitation texts.
+
+LLM run under free-tier instability (2026-11-23, D-073 … D-075):
+- `llm_runner`: 1 worker, adaptive 2–20 RPM, decision log `llm_state/e4_decisions.csv` + compressed cache committed every 100 answers (repo is public: E4 inputs are NOT committed). E4 evaluates only variants with ≥98% coverage. E5 reduced to 10 stock-weeks and 4 full analyses.
+- Backup provider Gemini (`gemini-3.5-flash`, OpenAI-compatible) configured in `llm_backup`, **inactive**; switching needs the user's approval and a full rerun with one model.

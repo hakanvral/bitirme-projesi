@@ -46,6 +46,18 @@ llm:
   # same decisions in the comparison (D-061). Full-mode narratives keep reasoning on.
   extra_body_lean: {chat_template_kwargs: {enable_thinking: false}}
 
+# Backup provider (D-075): prepared but NOT active. Setting enabled: true sends ALL agent calls to
+# this model instead of llm.model. Only switch with the user's approval, and then rerun every E4
+# variant and E5 with it, so all results come from one model (answers are cached per model).
+llm_backup:
+  enabled: false
+  base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+  model: gemini-3.5-flash     # probe 2026-11-23: valid JSON 1st try, audit clean, ~9 s per lean call
+  api_key_env: GEMINI_API_KEY # cloud: network secret for generativelanguage.googleapis.com
+  rpm: 10                     # free-tier limits not verified (docs host unreachable from the cloud)
+  extra_body: {}
+  extra_body_lean: {}         # Nemotron's thinking switch must not be sent to Gemini
+
 data_quality:
   # |daily simple return| above these thresholds is flagged for manual review (D-026).
   # Stocks: BIST main-market daily price limit is ±10%, +0.5pp for tick rounding.

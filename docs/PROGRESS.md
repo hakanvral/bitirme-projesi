@@ -10,12 +10,12 @@ Status: ✅ done · 🔄 running · ⏳ todo. Updated after each experiment.
 | E1 VaR backtest | ✅ done (41 stocks, 73,842 stock-days, 44 min) | `results/e1_var/<ts>/` | `uv run python -m pusula.evaluation.var_backtest` |
 | E2 factor model | ✅ done | `results/e2_factor/<ts>/` | `uv run python -m pusula.evaluation.factor_eval` |
 | E3 PPK event study | ✅ done | `results/e3_event/<ts>/` | `uv run python -m pusula.evaluation.event_study` |
-| E4 decision backtest (LLM, background, resumable) | risk ✅ inputs ✅ eval (non-LLM) ✅; llm ⏸ ~355/2,160 done: the NIM endpoint was throttled, then DEGRADED; it answered probes again at 04:49 but still served no batch calls (D-073) | `results/e4_backtest/<ts>/` | `PUSULA_LLM_RPM=20 PUSULA_LLM_CONCURRENCY=2 uv run python -m pusula.evaluation.trading_backtest --stages llm eval --yes` |
-| E5 LLM reliability (background, resumable) | ⏸ waiting for the endpoint (code + tests done) | `results/e5_llm/<ts>/` | `PUSULA_LLM_RPM=20 PUSULA_LLM_CONCURRENCY=2 uv run python -m pusula.evaluation.llm_reliability --yes` |
+| E4 decision backtest (LLM, resumable) | risk ✅ inputs ✅ non-LLM eval ✅; LLM 🔄 via `llm_runner` (order P+R+S → P → E5 → anon → P+R; status block below) | `results/e4_backtest/<ts>/`, `llm_state/e4_decisions.csv` | `uv run python -m pusula.evaluation.llm_runner all` |
+| E5 LLM reliability (reduced, D-074) | ⏳ starts after E4 P+R+S and P | `results/e5_llm/<ts>/` | (part of `llm_runner all`) or `uv run python -m pusula.evaluation.llm_runner e5` |
 | paper_results + docs/RESULTS.md + Backtest page | ✅ (E4 LLM part and E5 marked pending) | `results/`, `docs/RESULTS.md` | `uv run python -m pusula.evaluation.paper_results` |
 | Phase 7: Genel Bakış, demo warmup, README, cleanup | ✅ (warmup needs the endpoint to run) | | `uv run python -m pusula.demo.warmup` |
 
-LLM runs are resumable: finished calls are cached in `data/llm_cache.sqlite`, so re-running a command skips them.
+LLM runs are resumable: finished calls are cached in `data/llm_cache.sqlite` (committed copy: `llm_state/llm_cache.sqlite.gz`) and logged in `llm_state/e4_decisions.csv`. Fresh container or own PC: `docs/RUN_LLM_LOCALLY.md`.
 
 ## P0 · Setup: ✅ done (2026-11-16)
 - uv project (Python 3.12), ruff and pytest config, `.env.example`, `.gitignore`.
