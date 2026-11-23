@@ -158,10 +158,9 @@ def test_cache_save_and_restore_merge(tmp_path, monkeypatch):
     monkeypatch.setattr(lr, "STATE_DIR", tmp_path / "state")
     monkeypatch.setattr(lr, "CACHE_GZ", tmp_path / "state" / "c.gz")
 
-    class _S:
-        class llm:
-            cache_path = src
+    from types import SimpleNamespace
 
+    _S = SimpleNamespace(llm=SimpleNamespace(cache_path=src))
     monkeypatch.setattr(lr, "get_settings", lambda: _S)
     lr.save_cache()
     _S.llm.cache_path = tmp_path / "fresh" / "cache.sqlite"
