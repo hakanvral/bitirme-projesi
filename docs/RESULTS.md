@@ -167,14 +167,14 @@ Sharpe difference, rule filter − buy & hold: −0.19 (95 % CI [−0.83, 0.40],
 - The rule-based risk filter was in the market only 29 % of the time. That gave it the best result of the window, but the gain over buy & hold is not statistically significant.
 - Over 2019–2026 the same filter **halves the maximum drawdown (−16 % vs −42 %) but gives up return** and has a lower Sharpe ratio. It works as a risk reducer, not as an alpha source.
 
-**LLM variants** (lean, reasoning off, Nemotron 3 Ultra; evaluated only at ≥ 98 % coverage, D-074; status 2026-11-23 20:45 UTC)
+**LLM variants** (lean, reasoning off, Nemotron 3 Ultra; evaluated only at ≥ 98 % coverage, D-074; status 2026-11-23 23:50 UTC)
 
 | Variant | Coverage | Status |
 |---|---|---|
 | P+R+S | 540 / 540 (100 %) | ✅ evaluated |
 | P | 540 / 540 (100 %) | ✅ evaluated |
-| P+R+S anonymised | 0 / 540 | ⏳ (after E5) |
-| P+R | 0 / 540 | ⏳ |
+| P+R+S anonymised | 540 / 540 (100 %) | ✅ evaluated |
+| P+R | running | ⏳ |
 
 **LLM variants vs the non-LLM strategies, TRY** (full window / post-cutoff window)
 
@@ -186,6 +186,8 @@ Sharpe difference, rule filter − buy & hold: −0.19 (95 % CI [−0.83, 0.40],
 | LLM P (BEKLE = 50 %) | +21.4 % / +7.9 % | 16.6 % | −1.11 / −1.32 | −9.3 % | 0.54 | 0.122 |
 | **LLM P+R+S** (BEKLE = keep) | **+44.6 % / +18.3 %** | **6.5 %** | **−0.41 / −0.15** | **−1.9 %** | 0.22 | 0.006 |
 | LLM P+R+S (BEKLE = 50 %) | +38.8 % / +16.2 % | 7.5 % | −0.87 / −0.63 | −2.4 % | 0.26 | 0.125 |
+| LLM P+R+S anonymised (BEKLE = keep) | +48.2 % / +19.6 % | 5.8 % | −0.05 / +0.14 | −1.6 % | 0.15 | 0.007 |
+| LLM P+R+S anonymised (BEKLE = 50 %) | +45.0 % / +17.9 % | 6.6 % | −0.36 / −0.25 | −1.6 % | 0.22 | 0.102 |
 | XU030 | +17.7 % / −10.0 % | 27.2 % | −0.70 / −2.03 | −22.2 % | – | – |
 | Cash (TLREF) | +48.8 % / +19.2 % | | | | 0 | |
 
@@ -197,6 +199,8 @@ Sharpe differences (stationary bootstrap, 95 % CI):
 | LLM P+R+S − rule filter | +0.27 [−2.31, 2.76], p = 0.87 | +0.00 [−4.77, 4.85], p = 0.99 |
 | LLM P − buy & hold | +0.48 [−0.07, 1.02], p = 0.08 | +0.22 [−0.71, 0.98], p = 0.58 |
 | **LLM P+R+S − LLM P** (value of risk + scenario inputs) | +0.28 [−1.54, 2.17], p = 0.81 | +0.79 [−1.50, 3.98], p = 0.52 |
+| LLM P+R+S anonymised − buy & hold | +1.11 [−1.21, 3.40], p = 0.37 | +1.30 [−2.63, 5.66], p = 0.52 |
+| **LLM P+R+S − LLM P+R+S anonymised** (memorisation test) | −0.36 [−1.11, 0.63], p = 0.47 | −0.29 [−1.74, 1.62], p = 0.76 |
 
 Decision distribution:
 
@@ -204,16 +208,20 @@ Decision distribution:
 |---|---|---|---|---|
 | P | 14.8 % | 7.8 % | 77.4 % | **yes (flagged)** |
 | P+R+S | 2.6 % | 51.7 % | 45.7 % | no |
+| P+R+S anonymised | 1.9 % | 58.3 % | 39.8 % | no |
 
-- No failed calls in either variant.
+- No failed calls in any evaluated variant.
 - P+R+S by stock: mostly ALMA for the banks and small energy names (AKBNK, YKBNK 81 %, CANTE 91 %, ENERY 98 %); mostly BEKLE for THYAO (96 %), KCHOL (93 %) and TUPRS (85 %).
 - P by stock: BEKLE everywhere; AL most often for TUPRS (41 %).
+- P+R+S anonymised by stock: the same pattern as with names (ALMA for AKBNK 94 %, YKBNK 94 %, CANTE 93 %, ENERY 98 %; BEKLE for THYAO 100 %, TUPRS 89 %, KCHOL 83 %).
+- Named vs anonymised, same stock-week: **88.1 % identical decisions** (476 / 540). Most differences are BEKLE → ALMA (45 cases); AL never turned into ALMA or back.
 
 **In plain words (LLM part):**
 - With risk and scenario information, the LLM was **very cautious**: it chose AL in only 2.6 % of stock-weeks and was invested 22 % of the time on average.
 - In a year in which TLREF cash (+48.8 %) beat every equity strategy, this caution gave the **lowest volatility and drawdown** (−1.9 %) and the best Sharpe ratio of the equity strategies, but still less than cash (+44.6 %).
 - **Ablation P → P+R+S:** with price/trend only, the model mostly said BEKLE (77 %, above the 70 % flag) and, once in, stayed long (invested 53 % of the time; +29.5 %, max DD −12.4 %). Adding the risk and scenario blocks changed the answer from "wait" to "do not buy" (ALMA 8 % → 52 %): it was invested 22 % of the time, with a better Sharpe (−0.41 vs −0.69) and a much smaller drawdown (−1.9 % vs −12.4 %).
-- **None of the Sharpe differences is statistically significant**: the 95 % intervals are wide and include zero (52 weeks, L-17). P vs buy & hold comes closest (p = 0.08). Much of the P+R+S result comes from staying out of the market in a high-rate year, not from picking winners. P+R separates the risk effect from the scenario effect, and the anonymised variant tests memorisation.
+- **None of the Sharpe differences is statistically significant**: the 95 % intervals are wide and include zero (52 weeks, L-17). P vs buy & hold comes closest (p = 0.08). Much of the P+R+S result comes from staying out of the market in a high-rate year, not from picking winners. P+R separates the risk effect from the scenario effect (still running).
+- **Memorisation / look-ahead test (anonymised mode):** hiding the ticker, company name and absolute dates did **not** make the decisions worse. 88 % of the decisions are identical, the anonymised variant was slightly more cautious (ALMA 58 % vs 52 %) and had a slightly higher Sharpe ratio (−0.05 vs −0.41), and the difference is not significant (p = 0.47). So we find **no sign** that the P+R+S result depends on the model recognising the stock or the period. This is an absence of evidence within one year, not a proof: the numbers in the input (e.g. volatility levels) could still hint at the stock (L-02).
 
 ## E5 · LLM reliability (reduced, D-074; finished 2026-11-23 21:40 UTC)
 
