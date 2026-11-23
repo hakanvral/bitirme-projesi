@@ -35,6 +35,7 @@ class Completion:
     input_tokens: int = 0
     output_tokens: int = 0
     latency_s: float = 0.0
+    finish_reason: str | None = None  # "length" = the token budget ran out
 
 
 @dataclass
@@ -104,6 +105,13 @@ class LLMClient(ABC):
             rec.attempts += 1
             rec.input_tokens += comp.input_tokens
             rec.output_tokens += comp.output_tokens
+            if not comp.text.strip() and comp.finish_reason == "length":
+                # D-068: hidden reasoning used the whole budget; a retry would fail the same way
+                rec.json_failures += 1
+                rec.latency_s = time.perf_counter() - t0
+                rec.error = (f"empty reply: the token budget (max_tokens={self.max_tokens}) was "
+                             "used up by reasoning; raise llm.max_tokens")  # fmt: skip
+                raise LLMError(rec.error)
             try:
                 obj = schema.model_validate(extract_json(comp.text))
             except (JsonExtractionError, ValidationError) as exc:

@@ -101,7 +101,7 @@ class LLMCfg(BaseModel):
     rpm: int = 35
     max_concurrency: int = 4
     timeout_s: float = 180
-    max_tokens: int = 4096
+    max_tokens: int = 16384  # D-068
     temperature: float = 0.2
     json_mode: str = "auto"
     max_json_retries: int = 2

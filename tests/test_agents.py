@@ -56,6 +56,37 @@ def test_numeric_check_matches_formats_and_flags_invented_numbers():
     assert n == 7 and [b[1] for b in bad] == ["%17,3"]
 
 
+def test_numbers_are_matched_with_their_unit_and_context():
+    """Prompt v3 / D-065: '%30' must not be justified by an unrelated '−%30' scenario name."""
+    allowed = allowed_numbers(
+        {
+            "senaryolar": [
+                {
+                    "senaryo": "Petrol çöküşü (Brent −%30)",
+                    "tl_beklenen_getiri_degisimi_yuzde": -1.2,
+                },
+                {"senaryo": "Ülke riski artışı (CDS +200 bp)", "var99_degisimi_yuzde_puan": 0.4},
+            ],
+            "kalibrasyon_gun_sayisi": 500,
+        }
+    )
+    ok = [
+        "Petrol çöküşü (Brent −%30) senaryosunda beklenen getiri %-1,2 değişir.",
+        "Brent fiyatı %30 düşerse hisse zarar görebilir.",
+        "CDS +200 bp artarsa VaR 0,4 puan yükselir.",
+    ]
+    bad = [
+        "Hisse fiyatı %30 düşerse karar değişir.",  # unrelated threshold
+        "Brent %30 artarsa olumlu olur.",  # opposite direction of the −%30 shock
+        "Brent +%30 yükselirse olumlu olur.",  # explicit opposite sign
+        "Kalibrasyon %500 oldu.",  # 500 is a count, not a percentage
+    ]
+    for text in ok:
+        assert check_report({"t": text}, allowed)[1] == [], text
+    for text in bad:
+        assert check_report({"t": text}, allowed)[1] != [], text
+
+
 # ----------------------------------------------------------------------------- schemas
 def test_disclaimer_and_exact_reason_counts_are_enforced():
     base = {
@@ -64,7 +95,7 @@ def test_disclaimer_and_exact_reason_counts_are_enforced():
         "vade": "1-3 ay",
         "lehte_gerekceler": ["a", "b", "c"],
         "aleyhte_gerekceler": ["d", "e", "f"],
-        "temel_riskler": ["r"],
+        "temel_riskler": ["Kur şoku hisseyi olumsuz etkileyebilir."],
         "karari_degistirecek_kosullar": ["k"],
         "uyari": UYARI,
     }
@@ -145,7 +176,7 @@ def _responses(bad_first_risk=False):
                 "vade": "1-3 ay",
                 "lehte_gerekceler": ["a", "b", "c"],
                 "aleyhte_gerekceler": ["d", "e", "f"],
-                "temel_riskler": ["r"],
+                "temel_riskler": ["Kur şoku hisseyi olumsuz etkileyebilir."],
                 "karari_degistirecek_kosullar": ["k"],
                 "uyari": UYARI,
             },
@@ -169,7 +200,7 @@ def test_full_pipeline_runs_all_agents_and_audit_passes(patched):
     agents = [c.agent for c in run.calls]
     assert agents == ["risk_analyst", "scenario_analyst", "bull", "bear", "judge", "auditor"]
     assert run.audit.passed and run.audit.numbers_checked > 0 and run.decision.karar == "BEKLE"
-    assert run.totals["cost_usd"] == 0.0 and run.prompt_versions["judge"] == "judge.v2"
+    assert run.totals["cost_usd"] == 0.0 and run.prompt_versions["judge"] == "judge.v3"
 
 
 def test_invented_number_triggers_one_regeneration(patched):

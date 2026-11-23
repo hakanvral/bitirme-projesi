@@ -99,9 +99,27 @@ def risk_block(store: Store, symbol: str, as_of: date) -> tuple[dict, list[str]]
 
 
 # --------------------------------------------------------------------------- trend
+RSI_BANDS = {"asiri_alim_esigi": 70, "asiri_satim_esigi": 30}  # Wilder's conventional bands
+
+
+def rsi_zone(x: float | None) -> str:
+    if x is None or not np.isfinite(x):
+        return "hesaplanmadı"
+    if x >= RSI_BANDS["asiri_alim_esigi"]:
+        return "aşırı alım bölgesi"
+    if x <= RSI_BANDS["asiri_satim_esigi"]:
+        return "aşırı satım bölgesi"
+    return "nötr bölge"
+
+
 def trend_block(store: Store, symbol: str, as_of: date) -> dict:
+    """Trend metrics plus the deterministic RSI zone and its conventional thresholds (prompt
+    v3, D-065): the agents may then cite 70/30 instead of inventing thresholds."""
     inp = load_inputs(store, as_of)
-    return trend_metrics(session_prices(inp.prices, symbol, inp.sessions))
+    out = trend_metrics(session_prices(inp.prices, symbol, inp.sessions))
+    out["rsi14_bolgesi"] = rsi_zone(out.get("rsi14"))
+    out["rsi_esikleri"] = dict(RSI_BANDS)
+    return out
 
 
 # --------------------------------------------------------------------------- scenarios
@@ -153,7 +171,7 @@ def scenario_block(
                 else int(a["rank_change"]),
                 "bist30_ortalama_tl_degisim_yuzde": pct(us.get("BIST30")),
                 "enerji_ortalama_tl_degisim_yuzde": pct(us.get("Energy")),
-                "asiri_sok_tum_orneklem_kullanildi": bool(r_try["extrapolation_guard"]),
+                "tum_orneklem_kovaryansi_kullanildi": bool(r_try["extrapolation_guard"]),
             }
         )
         if r_try["extrapolation_guard"]:

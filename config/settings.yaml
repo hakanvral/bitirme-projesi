@@ -35,7 +35,7 @@ llm:
   rpm: 35                    # client-side rate limit (free tier ~40 requests/min)
   max_concurrency: 4         # parallel requests in batch runs (still capped by rpm)
   timeout_s: 180
-  max_tokens: 4096
+  max_tokens: 16384           # reasoning-on calls need room for hidden reasoning (D-068)
   temperature: 0.2
   json_mode: auto            # use response_format=json_object when the endpoint accepts it
   max_json_retries: 2

@@ -59,6 +59,18 @@ class Decision(BaseModel):
 
     _d = field_validator("uyari")(_has_disclaimer)
 
+    @field_validator("temel_riskler")
+    @classmethod
+    def _risks_are_sentences(cls, v: list[str]) -> list[str]:
+        """Prompt v3: each key risk is a short descriptive sentence, not a bare number."""
+        for item in v:
+            words = [w for w in item.split() if any(ch.isalpha() for ch in w)]
+            if len(words) < 3:
+                raise ValueError(
+                    f"temel_riskler items must be short descriptive sentences, got {item!r}"
+                )
+        return v
+
 
 class LeanDecision(BaseModel):
     """Single structured decision for the E4 backtest (lean mode)."""

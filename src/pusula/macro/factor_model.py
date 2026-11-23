@@ -94,11 +94,16 @@ def ridge_gcv(X: pd.DataFrame, y: pd.Series) -> tuple[dict[str, float], float]:
 
 
 def fit_ols_hac(
-    y: pd.Series, X: pd.DataFrame, ticker: str, variant: str, with_extras: bool = True
+    y: pd.Series,
+    X: pd.DataFrame,
+    ticker: str,
+    variant: str,
+    with_extras: bool = True,
+    min_weeks: int = MIN_WEEKS,
 ) -> FactorFit:
     d = pd.concat([y.rename("y"), X], axis=1).dropna()
-    if len(d) < MIN_WEEKS:
-        raise InsufficientDataError(f"{ticker}: {len(d)} complete weeks (< {MIN_WEEKS})")
+    if len(d) < min_weeks:
+        raise InsufficientDataError(f"{ticker}: {len(d)} complete weeks (< {min_weeks})")
     Xd = d[X.columns]
     lags = newey_west_lags(len(d))
     res = sm.OLS(d["y"], sm.add_constant(Xd)).fit(cov_type="HAC", cov_kwds={"maxlags": lags})
@@ -173,7 +178,7 @@ def regime_betas(
         hi = pd.Timestamp(rg.end) if rg.end else pd.Timestamp.max
         sel = (X.index >= lo) & (X.index < hi)
         try:
-            f = fit_ols_hac(y[sel], X[sel], ticker, "A", with_extras=False)
+            f = fit_ols_hac(y[sel], X[sel], ticker, "A", with_extras=False, min_weeks=min_weeks)
         except (InsufficientDataError, ValueError):
             continue
         except np.linalg.LinAlgError:

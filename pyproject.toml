@@ -21,6 +21,7 @@ dependencies = [
     "plotly>=6.0",
     "exchange-calendars>=4.10",
     "tabulate>=0.10.0",
+    "matplotlib>=3.11.2",
 ]
 
 [dependency-groups]
@@ -49,6 +50,8 @@ ignore = [
     "RUF001",  # Turkish characters in strings are intentional
     "RUF002",
     "RUF003",
+    "PD010",   # .pivot / .unstack are clearer than .pivot_table for one value per cell
+    "PD101",
 ]
 
 [tool.ruff.lint.per-file-ignores]

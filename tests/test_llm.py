@@ -155,3 +155,18 @@ def test_openai_client_raises_after_persistent_errors():
     c = _client(lambda req: httpx.Response(503), max_backoff_retries=2)
     with pytest.raises(LLMError, match="503"):
         c.complete([{"role": "user", "content": "x"}], json_mode=False)
+
+
+def test_empty_reply_after_token_budget_is_a_clear_error_without_retries():
+    """D-068: reasoning can use the whole max_tokens budget; that is reported, not retried."""
+    from pusula.llm.base import Completion
+
+    class Exhausted(MockLLMClient):
+        def complete(self, messages, json_mode):
+            self.calls.append(messages)
+            return Completion(text="", output_tokens=4096, finish_reason="length")
+
+    c = Exhausted({}, max_tokens=4096)
+    with pytest.raises(LLMError, match="token budget"):
+        c.generate("AGENT: x", "u", Out, agent="x", prompt_version="x.v1")
+    assert len(c.calls) == 1

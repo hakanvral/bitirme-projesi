@@ -6,10 +6,10 @@ Status: ✅ done · 🔄 running · ⏳ todo. Updated after each experiment.
 
 | Step | Status | Output | Resume command |
 |---|---|---|---|
-| Step 0: prompt v3 + context-aware numeric check | 🔄 in progress | `docs/prompt_v3_before_after.md` | `uv run pytest tests/test_agents.py` |
-| E1 VaR backtest | ⏳ | `results/e1_var/<ts>/` | `uv run python -m pusula.evaluation.var_backtest` |
-| E2 factor model | ⏳ | `results/e2_factor/<ts>/` | `uv run python -m pusula.evaluation.factor_eval` |
-| E3 PPK event study | ⏳ | `results/e3_event/<ts>/` | `uv run python -m pusula.evaluation.event_study` |
+| Step 0: prompt v3 + context-aware numeric check | ✅ done (THYAO, ENJSA rerun, audit passed) | `docs/prompt_v3_before_after.md` | `uv run pytest tests/test_agents.py` |
+| E1 VaR backtest | 🔄 running (background, ~30 min) | `results/e1_var/<ts>/` | `uv run python -m pusula.evaluation.var_backtest` |
+| E2 factor model | ✅ done | `results/e2_factor/<ts>/` | `uv run python -m pusula.evaluation.factor_eval` |
+| E3 PPK event study | ✅ done | `results/e3_event/<ts>/` | `uv run python -m pusula.evaluation.event_study` |
 | E4 decision backtest (LLM, background, resumable) | ⏳ | `results/e4_backtest/<ts>/` | `uv run python -m pusula.evaluation.trading_backtest --yes` |
 | E5 LLM reliability (background, resumable) | ⏳ | `results/e5_llm/<ts>/` | `uv run python -m pusula.evaluation.llm_reliability --yes` |
 | paper_results + docs/RESULTS.md + Backtest page | ⏳ | `results/`, `docs/RESULTS.md` | `uv run python -m pusula.evaluation.paper_results` |

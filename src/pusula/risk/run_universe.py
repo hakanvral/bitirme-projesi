@@ -34,7 +34,9 @@ from pusula.universe.members import universe_members
 log = logging.getLogger(__name__)
 
 
-def run(as_of: date, bases=BASES, store: Store | None = None) -> pd.DataFrame:
+def run(as_of: date, bases=BASES, store: Store | None = None, persist: bool = True) -> pd.DataFrame:
+    """Reports for the whole universe at ``as_of``. ``persist=False`` only returns the table
+    (used by E4's parallel workers; the parent process writes to DuckDB)."""
     s = get_settings()
     store = store or Store(s.paths.db_path, s.paths.raw_dir)
     inp = load_inputs(store, as_of)
@@ -82,6 +84,8 @@ def run(as_of: date, bases=BASES, store: Store | None = None) -> pd.DataFrame:
     table = pd.DataFrame(out_rows)
     # one row per (as_of, ticker, basis): overlap names keep the Energy label + in_bist30 flag
     table = table.sort_values("universe").drop_duplicates(["as_of", "ticker", "basis"], keep="last")
+    if not persist:
+        return table
     store.replace_rows("risk_reports", table, "as_of = ?", [as_of])
 
     out = s.paths.results_dir / "risk_universe" / f"{as_of:%Y%m%d}_{run_at:%Y%m%d_%H%M%S}"

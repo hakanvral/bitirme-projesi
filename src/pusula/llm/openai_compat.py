@@ -90,9 +90,11 @@ class OpenAICompatibleClient(LLMClient):
             if r.status_code != 200:
                 raise LLMError(f"HTTP {r.status_code}: {r.text[:300]}")
             data = r.json()
-            msg = (data.get("choices") or [{}])[0].get("message") or {}
+            choice = (data.get("choices") or [{}])[0]
+            msg = choice.get("message") or {}
             usage = data.get("usage") or {}
             return Completion(text=msg.get("content") or "",
                               input_tokens=int(usage.get("prompt_tokens") or 0),
                               output_tokens=int(usage.get("completion_tokens") or 0),
-                              latency_s=latency)  # fmt: skip
+                              latency_s=latency,
+                              finish_reason=choice.get("finish_reason"))  # fmt: skip
