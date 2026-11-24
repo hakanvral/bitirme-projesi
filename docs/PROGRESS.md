@@ -19,18 +19,18 @@ Status: ✅ done · 🔄 running · ⏳ todo. Updated after each experiment.
 
 <!-- llm-run-status:begin -->
 
-**LLM run status** (updated 2026-11-24 01:54 UTC; `llm_runner`, D-074)
+**LLM run status** (updated 2026-11-24 03:41 UTC; `llm_runner`, D-074)
 
 | E4 variant | Decisions | Coverage |
 |---|---|---|
 | P+R+S | 540 / 540 | 100% |
 | P | 540 / 540 | 100% |
 | P+R+S-anon | 540 / 540 | 100% |
-| P+R | 319 / 540 | 59% |
+| P+R | 503 / 540 | 93% |
 
 Current pace: 2 RPM (1 worker).
 
-Recent pacing events: 2026-11-24 01:33 UTC 'HTTP 429 after 1 attempts': pace 2 RPM, wait 60s; 2026-11-24 01:39 UTC 'HTTP 429 after 1 attempts': pace 2 RPM, wait 60s; 2026-11-24 01:51 UTC 'HTTP 429 after 1 attempts': pace 2 RPM, wait 60s
+Recent pacing events: 2026-11-24 03:23 UTC 'HTTP 429 after 1 attempts': pace 2 RPM, wait 60s; 2026-11-24 03:25 UTC 'HTTP 429 after 1 attempts': pace 2 RPM, wait 60s; 2026-11-24 03:30 UTC 'HTTP 429 after 1 attempts': pace 2 RPM, wait 60s
 
 Resume: `uv run python -m pusula.evaluation.llm_runner all` (fresh container: see `docs/RUN_LLM_LOCALLY.md`).
 
